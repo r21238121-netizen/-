@@ -1,34 +1,72 @@
 ```
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Dependencies
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 venv/
+env/
+ENV/
 .venv/
+.env/
+.venv
+pyvenv.cfg
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# Environment
 .env
 .env.local
-*.env.*
+.env.*
+!phoenix_bot/.env.example
 
-# Logs
-*.log
-
-# Editors
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*.tmp
 
-# Database (if temporary/build artifact)
-*.db
+# OS
+.DS_Store
+Thumbs.db
 
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
+# Project specific
+phoenix_bot/__pycache__/
+phoenix_bot/venv/
+phoenix_bot/.env
+phoenix_bot/*.pyc
+phoenix_bot/__pycache__/
+phoenix_bot/venv/
+phoenix_bot/.env.local
+phoenix_bot/*.log
+phoenix_bot/.vscode/
+phoenix_bot/.idea/
 ```
