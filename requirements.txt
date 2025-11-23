@@ -1,17 +1,11 @@
-# Core dependencies
-pandas==2.2.2
-numpy==1.26.4
-scikit-learn==1.5.0
-torch==2.3.1
-ta==0.11.0
-optuna==3.6.1
-cryptography==42.0.8
-PySide6==6.7.0
-aiohttp==3.9.5
-pyarrow
+PyQt6>=6.4.0
+PyQt6-WebEngine>=6.4.0
+requests
+websockets
+cryptography
+pandas
+numpy
 xgboost
-lightgbm
-onnx
-onnxruntime
-seaborn
-matplotlib
+scikit-learn
+sqlalchemy
+aiohttp
