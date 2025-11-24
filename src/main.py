@@ -12,6 +12,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from gui.auth_window import AuthWindow
 from gui.main_window import MainWindow
 from api.bingx_api import BingXAPI
+from api.bingx_initializer import initialize_bingx_connection
 from models.ai_agent import AIAgent
 from utils.config import Config
 
@@ -54,38 +55,15 @@ class FuturesScoutApp:
         Возвращает True если все критерии выполнены, иначе False
         """
         try:
-            # Проверяем баланс
-            balance_data = self.api.get_balance()
-            if 'data' not in balance_data or 'balances' not in balance_data['data']:
-                print("Ошибка: Не удалось получить баланс")
+            # Используем новый инициализатор для проверки
+            result = initialize_bingx_connection(self.api.api_key, self.api.secret_key)
+            
+            if result['success']:
+                print(f"Инициализация успешна. Баланс: {result['balance']} USDT, монет с балансом > 0: {result['total_coins_with_balance']}")
+                return True
+            else:
+                print(f"Ошибка инициализации: {result['error']}")
                 return False
-            
-            # Проверяем USDT баланс
-            usdt_balance = 0
-            for balance in balance_data['data']['balances']:
-                if balance['asset'] == 'USDT':
-                    usdt_balance = float(balance['walletBalance'])
-                    break
-            
-            if usdt_balance <= 0:
-                print(f"Ошибка: Недостаточно средств. Баланс: {usdt_balance} USDT")
-                return False
-            
-            # Проверяем другие критерии (например, минимальный баланс для торговли)
-            if usdt_balance < 10:  # Минимальный порог для торговли
-                print(f"Ошибка: Баланс слишком мал для торговли. Требуется минимум 10 USDT, текущий: {usdt_balance}")
-                return False
-            
-            # Проверяем возможность получения цен
-            market_data = self.api.get_market_price('BTC-USDT')
-            if 'data' not in market_data or len(market_data['data']) == 0:
-                print("Ошибка: Не удалось получить рыночные данные")
-                return False
-            
-            # Здесь можно добавить другие проверки
-            
-            print(f"Инициализация успешна. Баланс: {usdt_balance} USDT")
-            return True
             
         except Exception as e:
             print(f"Ошибка при инициализации: {e}")
@@ -108,15 +86,22 @@ class FuturesScoutApp:
         """Подключение с новыми учетными данными"""
         self.api = BingXAPI(api_key, secret_key)
         if self.api.validate_credentials():
-            # Сохраняем ключи
-            self.config.save_credentials(api_key, secret_key)
-            # Создаем ИИ-агента
-            self.ai_agent = AIAgent(self.api)
-            # Открываем основное окно
-            self.start_main_window(real_mode=True)
-            self.auth_window.close()
-            return True
+            # Проверяем критерии с помощью нового инициализатора
+            result = initialize_bingx_connection(api_key, secret_key)
+            if result['success']:
+                # Сохраняем ключи
+                self.config.save_credentials(api_key, secret_key)
+                # Создаем ИИ-агента
+                self.ai_agent = AIAgent(self.api)
+                # Открываем основное окно
+                self.start_main_window(real_mode=True)
+                self.auth_window.close()
+                return True
+            else:
+                print(f"Ошибка: Не выполнены критерии для торговли - {result['error']}")
+                return False
         else:
+            print("Ошибка: Неверные API-ключи")
             return False
     
     def start_demo_mode(self):
