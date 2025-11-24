@@ -53,7 +53,9 @@ class BingXAPI:
         if method.upper() == 'GET':
             response = requests.get(url, params=params, headers=headers)
         elif method.upper() == 'POST':
-            response = requests.post(url, params=params, headers=headers)
+            response = requests.post(url, data=params, headers=headers)
+        elif method.upper() == 'DELETE':
+            response = requests.delete(url, params=params, headers=headers)
         
         return response.json()
     
@@ -74,6 +76,39 @@ class BingXAPI:
                         }
                     ]
                 }
+            }
+        elif '/position/list' in endpoint:
+            return {
+                "code": 0,
+                "msg": "",
+                "data": [
+                    {
+                        "symbol": "BTC-USDT",
+                        "positionAmt": "0.001",
+                        "entryPrice": "60000.00",
+                        "unrealizedProfit": "50.00",
+                        "leverage": "10",
+                        "positionSide": "LONG"
+                    }
+                ]
+            }
+        elif '/trade/myTrades' in endpoint:
+            return {
+                "code": 0,
+                "msg": "",
+                "data": [
+                    {
+                        "symbol": "BTC-USDT",
+                        "id": "123456",
+                        "orderId": "789012",
+                        "side": "BUY",
+                        "price": "60000.00",
+                        "qty": "0.001",
+                        "realizedPnl": "50.00",
+                        "fee": "-0.0005",
+                        "time": int(time.time() * 1000)
+                    }
+                ]
             }
         elif '/ticker/price' in endpoint:
             return {
@@ -97,10 +132,124 @@ class BingXAPI:
         except:
             return False
     
+    # Управление ордерами
+    def place_order(self, symbol, side, quantity, order_type='LIMIT', price=None, position_side='BOTH'):
+        """Создать ордер (limit/market)"""
+        params = {
+            'symbol': symbol,
+            'side': side,
+            'type': order_type,
+            'quantity': quantity,
+            'positionSide': position_side
+        }
+        
+        if price:
+            params['price'] = price
+        
+        return self._make_request('POST', '/openApi/swap/v2/trade/order', params=params, sign=True)
+    
+    def place_batch_orders(self, orders):
+        """Массовое создание ордеров"""
+        params = {
+            'orders': orders
+        }
+        return self._make_request('POST', '/openApi/swap/v2/trade/batchOrders', params=params, sign=True)
+    
+    def cancel_order(self, symbol, order_id):
+        """Отменить ордер"""
+        params = {
+            'symbol': symbol,
+            'orderId': order_id
+        }
+        return self._make_request('DELETE', '/openApi/swap/v2/trade/order', params=params, sign=True)
+    
+    def cancel_all_open_orders(self, symbol):
+        """Отменить все открытые ордера"""
+        params = {
+            'symbol': symbol
+        }
+        return self._make_request('DELETE', '/openApi/swap/v2/trade/allOpenOrders', params=params, sign=True)
+    
+    def get_open_orders(self, symbol=None):
+        """Список открытых ордеров"""
+        params = {}
+        if symbol:
+            params['symbol'] = symbol
+        return self._make_request('GET', '/openApi/swap/v2/trade/openOrders', params=params, sign=True)
+    
+    def get_all_orders(self, symbol, start_time=None, end_time=None, limit=500):
+        """История всех ордеров"""
+        params = {
+            'symbol': symbol,
+            'limit': limit
+        }
+        if start_time:
+            params['startTime'] = start_time
+        if end_time:
+            params['endTime'] = end_time
+        return self._make_request('GET', '/openApi/swap/v2/trade/allOrders', params=params, sign=True)
+    
+    # Позиции
+    def get_positions(self):
+        """Список открытых позиций"""
+        return self._make_request('GET', '/openApi/swap/v2/position/list', sign=True)
+    
+    def close_position(self, symbol, position_side='BOTH'):
+        """Закрыть позицию рыночным ордером"""
+        params = {
+            'symbol': symbol,
+            'positionSide': position_side
+        }
+        return self._make_request('POST', '/openApi/swap/v2/position/closePosition', params=params, sign=True)
+    
+    def set_margin_mode(self, symbol, margin_mode):
+        """Установить режим маржи (cross/isolated)"""
+        params = {
+            'symbol': symbol,
+            'marginMode': margin_mode
+        }
+        return self._make_request('POST', '/openApi/swap/v2/position/setMarginMode', params=params, sign=True)
+    
+    def set_leverage(self, symbol, leverage, position_side='BOTH'):
+        """Установить плечо"""
+        params = {
+            'symbol': symbol,
+            'leverage': leverage,
+            'positionSide': position_side
+        }
+        return self._make_request('POST', '/openApi/swap/v2/position/setLeverage', params=params, sign=True)
+    
+    def set_tp_sl(self, symbol, take_profit=None, stop_loss=None, position_side='BOTH'):
+        """Установить Take Profit / Stop Loss"""
+        params = {
+            'symbol': symbol,
+            'positionSide': position_side
+        }
+        if take_profit:
+            params['takeProfit'] = take_profit
+        if stop_loss:
+            params['stopLoss'] = stop_loss
+        return self._make_request('POST', '/openApi/swap/v2/position/setTPSL', params=params, sign=True)
+    
+    # Баланс и счёт
     def get_balance(self):
-        """Получение баланса"""
+        """Получить баланс аккаунта"""
         return self._make_request('GET', '/openApi/swap/v2/user/balance', sign=True)
     
+    def get_account_info(self):
+        """Информация о счёте (режим маржи, плечо и т.д.)"""
+        return self._make_request('GET', '/openApi/swap/v2/user/account', sign=True)
+    
+    # История сделок
+    def get_my_trades(self, symbol, limit=500):
+        """История сделок"""
+        params = {
+            'symbol': symbol,
+            'limit': limit
+        }
+        return self._make_request('GET', '/openApi/swap/v2/trade/myTrades', params=params, sign=True)
+    
+    # Дополнительные методы
     def get_market_price(self, symbol):
         """Получение текущей цены"""
         params = {'symbol': symbol}
@@ -114,24 +263,6 @@ class BingXAPI:
             'limit': limit
         }
         return self._make_request('GET', '/openApi/swap/v1/depthKlines', params=params)
-    
-    def place_order(self, symbol, side, quantity, order_type='LIMIT', price=None):
-        """Размещение ордера"""
-        if self.demo_mode:
-            # В демо-режиме просто логируем
-            return {"code": 0, "msg": "Order placed in demo mode", "data": {"orderId": "demo_order_123"}}
-        
-        params = {
-            'symbol': symbol,
-            'side': side,
-            'type': order_type,
-            'quantity': quantity
-        }
-        
-        if price:
-            params['price'] = price
-        
-        return self._make_request('POST', '/openApi/swap/v2/trade/order', params=params, sign=True)
     
     def get_open_interest(self, symbol):
         """Получение Open Interest"""

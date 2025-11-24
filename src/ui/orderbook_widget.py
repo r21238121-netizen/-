@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QColor
+from PyQt6.QtMultimedia import QSoundEffect  # Для звуковых уведомлений
+import os
 
 
 class OrderBookWidget(QWidget):
@@ -15,7 +17,37 @@ class OrderBookWidget(QWidget):
         self.api = api
         self.symbol = symbol
         
+        # Инициализация звуковых эффектов
+        self.init_sound_effects()
+        
         self.init_ui()
+    
+    def init_sound_effects(self):
+        """Инициализация звуковых эффектов"""
+        try:
+            # Создаем директорию для звуков если не существует
+            sound_dir = os.path.join(os.path.expanduser("~"), ".futures_scout", "sounds")
+            os.makedirs(sound_dir, exist_ok=True)
+            
+            # Создаем простой звуковой файл для уведомлений (в реальном приложении можно использовать реальные звуки)
+            self.trade_sound = QSoundEffect(self)
+            # В реальном приложении загрузите реальный звуковой файл
+            # self.trade_sound.setSource(QUrl.fromLocalFile("/path/to/trade_sound.wav"))
+            # self.trade_sound.setVolume(0.5)
+        except:
+            # Если QSoundEffect недоступен, используем альтернативу
+            self.trade_sound = None
+
+    def play_trade_sound(self):
+        """Воспроизведение звука при открытии сделки"""
+        if self.trade_sound:
+            try:
+                self.trade_sound.play()
+            except:
+                # Альтернативный способ уведомления
+                print("🔔 Открытие сделки!")
+        else:
+            print("🔔 Открытие сделки!")
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -125,6 +157,9 @@ class OrderBookWidget(QWidget):
                 from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.information(self, 'Покупка', f'Цена лучшего предложения для покупки: {best_ask_price}')
                 
+                # Воспроизводим звук при открытии сделки
+                self.play_trade_sound()
+                
                 # В реальном режиме можно было бы разместить ордер:
                 # if hasattr(self.api, 'place_order') and not self.api.demo_mode:
                 #     result = self.api.place_order(self.symbol, 'BUY', quantity, 'MARKET')
@@ -145,6 +180,9 @@ class OrderBookWidget(QWidget):
                 # Пока просто выводим сообщение
                 from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.information(self, 'Продажа', f'Цена лучшего предложения для продажи: {best_bid_price}')
+                
+                # Воспроизводим звук при открытии сделки
+                self.play_trade_sound()
                 
                 # В реальном режиме можно было бы разместить ордер:
                 # if hasattr(self.api, 'place_order') and not self.api.demo_mode:

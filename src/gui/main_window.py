@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
+from PyQt6.QtMultimedia import QSoundEffect  # Для звуковых уведомлений
+import os
 from ui.chart_widget import ChartWidget
 from ui.orderbook_widget import OrderBookWidget
 
@@ -21,8 +23,43 @@ class MainWindow(QMainWindow):
         # Текущая выбранная пара
         self.current_symbol = 'BTC-USDT'
         
+        # Инициализация звуковых эффектов
+        self.init_sound_effects()
+        
+        # Переменные для отслеживания PnL
+        self.current_pnl = 0.0
+        self.total_pnl = 0.0
+        
         self.init_ui()
         self.setup_timers()
+    
+    def init_sound_effects(self):
+        """Инициализация звуковых эффектов"""
+        try:
+            # Создаем директорию для звуков если не существует
+            sound_dir = os.path.join(os.path.expanduser("~"), ".futures_scout", "sounds")
+            os.makedirs(sound_dir, exist_ok=True)
+            
+            # Создаем простой звуковой файл для уведомлений (в реальном приложении можно использовать реальные звуки)
+            # Для демонстрации используем системный звук или просто будем выводить сообщение
+            self.trade_sound = QSoundEffect(self)
+            # В реальном приложении загрузите реальный звуковой файл
+            # self.trade_sound.setSource(QUrl.fromLocalFile("/path/to/trade_sound.wav"))
+            # self.trade_sound.setVolume(0.5)
+        except:
+            # Если QSoundEffect недоступен, используем альтернативу
+            self.trade_sound = None
+    
+    def play_trade_sound(self):
+        """Воспроизведение звука при открытии сделки"""
+        if self.trade_sound:
+            try:
+                self.trade_sound.play()
+            except:
+                # Альтернативный способ уведомления
+                print("🔔 Открытие сделки!")
+        else:
+            print("🔔 Открытие сделки!")
     
     def init_ui(self):
         self.setWindowTitle('Futures Scout - Локальный ИИ-ассистент')
@@ -52,6 +89,31 @@ class MainWindow(QMainWindow):
         panel.setFixedWidth(300)
         layout = QVBoxLayout(panel)
         
+        # Заголовок
+        title_label = QLabel('Futures Scout')
+        title_label.setFont(QFont('Arial', 16, QFont.Weight.Bold))
+        title_label.setStyleSheet('color: #4a90e2; padding: 10px;')
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title_label)
+        
+        # Блок PnL
+        pnl_frame = QFrame()
+        pnl_frame.setFrameStyle(QFrame.Shape.Box)
+        pnl_frame.setStyleSheet('background-color: rgba(30, 30, 60, 180); border: 1px solid #3a3a6a; border-radius: 5px;')
+        pnl_layout = QVBoxLayout(pnl_frame)
+        
+        pnl_title = QLabel('PnL (Прибыль/Убыток)')
+        pnl_title.setFont(QFont('Arial', 10, QFont.Weight.Bold))
+        pnl_title.setStyleSheet('color: #4a90e2;')
+        pnl_layout.addWidget(pnl_title)
+        
+        self.pnl_label = QLabel(f'Текущий PnL: ${self.current_pnl:.2f}\nОбщий PnL: ${self.total_pnl:.2f}')
+        self.pnl_label.setStyleSheet('color: #ffffff; font-family: monospace;')
+        self.pnl_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pnl_layout.addWidget(self.pnl_label)
+        
+        layout.addWidget(pnl_frame)
+        
         # Баланс (только в реальном режиме)
         if self.real_mode:
             balance_label = QLabel('Баланс:')
@@ -64,7 +126,7 @@ class MainWindow(QMainWindow):
             layout.addWidget(self.balance_text)
         else:
             demo_label = QLabel('ДЕМО-РЕЖИМ\nНИКАКИХ РЕАЛЬНЫХ СДЕЛОК')
-            demo_label.setStyleSheet('background-color: orange; color: black; font-weight: bold; padding: 10px;')
+            demo_label.setStyleSheet('background-color: rgba(255, 165, 0, 150); color: black; font-weight: bold; padding: 10px; border-radius: 5px;')
             demo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(demo_label)
         
@@ -95,7 +157,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(mode_layout)
         
         # Кнопка запуска ИИ-агента
-        self.ai_button = QPushButton('Запустить ИИ-агент')
+        self.ai_button = QPushButton('🤖 Запустить ИИ-агент')
         self.ai_button.clicked.connect(self.on_ai_agent_clicked)
         layout.addWidget(self.ai_button)
         
@@ -110,7 +172,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.signals_area)
         
         # Кнопка статистики ИИ
-        self.stats_button = QPushButton('Статистика ИИ')
+        self.stats_button = QPushButton('📊 Статистика ИИ')
         self.stats_button.clicked.connect(self.show_ai_stats)
         layout.addWidget(self.stats_button)
         
@@ -163,56 +225,83 @@ class MainWindow(QMainWindow):
         self.retrain_timer = QTimer()
         self.retrain_timer.timeout.connect(self.retrain_ai_model)
         self.retrain_timer.start(3600000)  # 1 час
+        
+        # Таймер проверки позиций и PnL (каждые 5 секунд)
+        self.pnl_timer = QTimer()
+        self.pnl_timer.timeout.connect(self.update_pnl_display)
+        self.pnl_timer.start(5000)  # Обновление PnL каждые 5 секунд
     
     def apply_dark_theme(self):
-        """Применение темной темы"""
+        """Применение темной темы с мягким черным и синим градиентом"""
         dark_style = """
             QMainWindow {
-                background-color: #2b2b2b;
+                background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1, 
+                                                stop: 0 #000000, stop: 1 #0a0a2a);
             }
             QWidget {
-                background-color: #2b2b2b;
+                background-color: transparent;
                 color: #ffffff;
             }
             QLabel {
                 color: #ffffff;
+                font-family: 'Arial', sans-serif;
             }
             QPushButton {
-                background-color: #3c3f41;
-                border: 1px solid #555555;
-                padding: 5px;
-                border-radius: 3px;
+                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, 
+                                                stop: 0 #1a1a3a, stop: 1 #0d0d2d);
+                border: 1px solid #3a3a6a;
+                padding: 8px;
+                border-radius: 5px;
                 color: #ffffff;
+                font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #4c4f51;
+                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, 
+                                                stop: 0 #2a2a5a, stop: 1 #1d1d4d);
             }
             QPushButton:pressed {
-                background-color: #5c5f61;
+                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, 
+                                                stop: 0 #0d0d2d, stop: 1 #1a1a3a);
             }
             QComboBox {
-                background-color: #3c3f41;
-                border: 1px solid #555555;
+                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, 
+                                                stop: 0 #1a1a3a, stop: 1 #0d0d2d);
+                border: 1px solid #3a3a6a;
                 padding: 5px;
                 color: #ffffff;
+                border-radius: 3px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1e1e3e;
+                color: #ffffff;
+                selection-background-color: #2a2a5a;
             }
             QTextEdit {
-                background-color: #1e1e1e;
-                border: 1px solid #555555;
+                background-color: rgba(10, 10, 30, 180);
+                border: 1px solid #3a3a6a;
                 color: #ffffff;
+                border-radius: 3px;
             }
             QCheckBox {
                 spacing: 5px;
+                color: #ffffff;
             }
             QCheckBox::indicator {
                 width: 13px;
                 height: 13px;
+                background-color: #1a1a3a;
+                border: 1px solid #3a3a6a;
+                border-radius: 2px;
             }
             QCheckBox::indicator:unchecked {
-                image: url(/tmp/checkbox_unchecked.png);
+                background-color: #1a1a3a;
             }
             QCheckBox::indicator:checked {
-                image: url(/tmp/checkbox_checked.png);
+                background-color: #4a4a8a;
+            }
+            QFrame {
+                border: 1px solid #3a3a6a;
+                border-radius: 5px;
             }
         """
         self.setStyleSheet(dark_style)
@@ -229,8 +318,12 @@ class MainWindow(QMainWindow):
                         asset = asset_balance['asset']
                         balance = asset_balance['walletBalance']
                         unrealized = asset_balance['unrealizedProfit']
+                        margin_balance = asset_balance.get('marginBalance', balance)
                         balance_text += f"{asset}: {balance} (PNL: {unrealized})\n"
                     self.balance_text.setPlainText(balance_text)
+                
+                # Обновляем PnL дисплей
+                self.update_pnl_display()
             except Exception as e:
                 print(f"Ошибка обновления баланса: {e}")
     
@@ -253,13 +346,15 @@ class MainWindow(QMainWindow):
         signal = self.ai_agent.generate_signal(self.current_symbol)
         if signal:
             self.display_signal(signal)
+            # Воспроизводим звук при генерации сигнала
+            self.play_trade_sound()
         else:
             self.signals_area.append("Нет подходящих сигналов для данной пары")
     
     def display_signal(self, signal):
         """Отображение сигнала в интерфейсе"""
         signal_text = (
-            f"[ 🤖 СИГНАЛ: {signal['side']} ]\n"
+            f"🔔 [ 🤖 СИГНАЛ: {signal['side']} ]\n"
             f"Монета: {signal['coin']}\n"
             f"Цена входа: ${signal['entry_price']:.2f}\n"
             f"TP: ${signal['tp_price']:.2f} | SL: ${signal['sl_price']:.2f}\n"
@@ -269,12 +364,43 @@ class MainWindow(QMainWindow):
         
         self.signals_area.clear()
         self.signals_area.append(signal_text)
+        
+        # Обновляем PnL при отображении сигнала
+        self.update_pnl_display()
+    
+    def update_pnl_display(self):
+        """Обновление отображения PnL"""
+        try:
+            # Получаем текущие позиции для расчета PnL
+            positions = self.api.get_positions()
+            if positions and 'data' in positions:
+                total_unrealized_pnl = 0
+                for position in positions['data']:
+                    if 'unrealizedProfit' in position:
+                        total_unrealized_pnl += float(position['unrealizedProfit'])
+                
+                self.current_pnl = total_unrealized_pnl
+                
+                # Обновляем отображение PnL
+                self.pnl_label.setText(f'Текущий PnL: ${self.current_pnl:.2f}\nОбщий PnL: ${self.total_pnl:.2f}')
+                
+                # Меняем цвет в зависимости от значения PnL
+                if self.current_pnl > 0:
+                    self.pnl_label.setStyleSheet('color: #00ff00; font-family: monospace;')  # Зеленый
+                elif self.current_pnl < 0:
+                    self.pnl_label.setStyleSheet('color: #ff4444; font-family: monospace;')  # Красный
+                else:
+                    self.pnl_label.setStyleSheet('color: #ffffff; font-family: monospace;')  # Белый
+                
+        except Exception as e:
+            print(f"Ошибка обновления PnL: {e}")
     
     def check_ai_signals(self):
         """Проверка наличия новых сигналов от ИИ"""
         # В реальном приложении здесь будет проверка на новые сигналы
         # и отображение их в интерфейсе
-        pass
+        # Обновляем PnL при проверке сигналов
+        self.update_pnl_display()
     
     def retrain_ai_model(self):
         """Переобучение ИИ-модели"""
