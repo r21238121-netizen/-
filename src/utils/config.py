@@ -18,6 +18,10 @@ class Config:
         # Создаем директорию конфига если не существует
         os.makedirs(self.config_dir, exist_ok=True)
         
+        # Создаем директорию для звуков
+        self.sounds_dir = os.path.join(self.config_dir, "sounds")
+        os.makedirs(self.sounds_dir, exist_ok=True)
+        
         # Генерируем ключ шифрования
         self.key = self._get_or_create_key()
         self.cipher = Fernet(self.key)
