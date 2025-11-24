@@ -27,11 +27,22 @@ def build_application():
         "--windowed",  # Графическое приложение (без консоли)
         "--onedir",  # Создать один каталог с приложением
         "--add-data=src/ui;ui",  # Добавить папку с UI файлами
+        "--add-data=src/models;models",  # Добавить папку с моделями
+        "--add-data=src/utils;utils",  # Добавить папку с утилитами
+        "--add-data=src/api;api",  # Добавить папку с API
+        "--add-data=src/gui;gui",  # Добавить папку с GUI
         "--hidden-import=PyQt6",  # Явно указываем импорты
         "--hidden-import=PyQt6.QtWebEngineWidgets",
+        "--hidden-import=PyQt6.QtMultimedia",
         "--hidden-import=sqlalchemy",
         "--hidden-import=xgboost",
         "--hidden-import=cryptography",
+        "--hidden-import=numpy",
+        "--hidden-import=pandas",
+        "--hidden-import=sklearn",
+        "--hidden-import=sklearn.tree",
+        "--hidden-import=sklearn.linear_model",
+        "--hidden-import=sklearn.svm",
         "--collect-all=lightweight_charts",  # Если используется
         "--icon=icon.ico",  # Иконка (если есть)
         main_script

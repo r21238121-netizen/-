@@ -177,6 +177,11 @@ class MainWindow(QMainWindow):
         self.stats_button.clicked.connect(self.show_ai_stats)
         layout.addWidget(self.stats_button)
         
+        # Кнопка загрузки датасета для обучения ИИ
+        self.load_dataset_button = QPushButton('📥 Загрузить датасет для ИИ')
+        self.load_dataset_button.clicked.connect(self.load_dataset_for_training)
+        layout.addWidget(self.load_dataset_button)
+        
         # Растягиваем пустое пространство вниз
         layout.addStretch()
         
@@ -450,3 +455,18 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.signals_area.clear()
             self.signals_area.append(f"Ошибка при получении статистики: {str(e)}")
+    
+    def load_dataset_for_training(self):
+        """Загрузка JSON датасета для обучения ИИ"""
+        if self.ai_agent is None:
+            self.signals_area.append("Ошибка: ИИ-агент не инициализирован")
+            return
+        
+        try:
+            from gui.training_dialog import TrainingDialog
+            dialog = TrainingDialog(self.ai_agent, self)
+            dialog.exec()
+        except Exception as e:
+            print(f"Ошибка при открытии диалога загрузки датасета: {e}")
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, 'Ошибка', f'Ошибка при открытии диалога загрузки датасета: {str(e)}')

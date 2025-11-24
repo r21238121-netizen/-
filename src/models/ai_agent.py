@@ -413,6 +413,110 @@ class AIAgent:
             # Обновляем время последнего обучения
             self.last_training_time = datetime.now()
     
+    def train_from_json_dataset(self, json_file_path):
+        """Обучение модели из JSON датасета"""
+        print(f"Загрузка JSON датасета из {json_file_path}...")
+        
+        if not os.path.exists(json_file_path):
+            print(f"Файл {json_file_path} не найден!")
+            return False
+        
+        try:
+            with open(json_file_path, 'r', encoding='utf-8') as f:
+                dataset = json.load(f)
+            
+            print(f"Загружено {len(dataset)} образцов из JSON датасета")
+            
+            # Подготовка признаков из датасета
+            X = []
+            y = []
+            
+            for sample in dataset:
+                # Извлекаем признаки из датасета
+                features = sample['features']
+                
+                # Формируем вектор признаков
+                feature_vector = [
+                    features['current_price'],
+                    features['sma_20'],
+                    features['sma_50'],
+                    features['rsi'],
+                    features['macd'],
+                    features['volatility'],
+                    features['avg_volume'],
+                    features['current_volume'],
+                    features['ob_imbalance'],
+                    features['funding_rate'],
+                    features['hour'],
+                    features['day_of_week'],
+                    features['price_to_sma20'],
+                    features['price_to_sma50'],
+                    features['candle_count'],
+                    features['price_change_period'],
+                    features['total_volume'],
+                    features['last_candle_change'],
+                    features['deviation_from_5_sma'],
+                    features['external_volatility']
+                ]
+                
+                # Добавляем признаки, связанные с самим сигналом
+                signal_features = [
+                    sample['entry_price'],
+                    sample['tp_price'],
+                    sample['sl_price'],
+                    sample['confidence'],
+                    1 if sample['side'] == 'LONG' else 0,  # one-hot для side
+                    0 if sample['side'] == 'LONG' else 1   # one-hot для side
+                ]
+                
+                # Объединяем все признаки
+                full_feature_vector = feature_vector + signal_features
+                X.append(full_feature_vector)
+                
+                # Метка: 1 для успеха, 0 для неудачи
+                y.append(1 if sample['success'] else 0)
+            
+            if len(X) > 0:
+                X = np.array(X)
+                y = np.array(y)
+                
+                print(f"Размер обучающей выборки: {X.shape}")
+                
+                # Используем XGBoost для обучения
+                from xgboost import XGBClassifier
+                
+                # Создаем новую модель
+                new_model = XGBClassifier(
+                    n_estimators=200,
+                    max_depth=8,
+                    learning_rate=0.1,
+                    subsample=0.8,
+                    colsample_bytree=0.8,
+                    random_state=42,
+                    n_jobs=-1
+                )
+                
+                # Обучаем новую модель
+                new_model.fit(X, y)
+                
+                # Обновляем модель в агенте
+                self.model = new_model
+                
+                # Сохраняем модель
+                self._save_model()
+                
+                print("Модель успешно обучена из JSON датасета!")
+                return True
+            else:
+                print("Нет данных для обучения")
+                return False
+                
+        except Exception as e:
+            print(f"Ошибка при обучении из JSON датасета: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
     def should_retrain(self):
         """Проверка необходимости переобучения модели"""
         return (datetime.now() - self.last_training_time).days >= 1  # Ежедневное переобучение
