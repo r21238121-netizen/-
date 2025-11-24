@@ -31,14 +31,65 @@ class FuturesScoutApp:
             self.api = BingXAPI(api_key, secret_key)
             
             if self.api.validate_credentials():
-                # Успешное подключение - открываем основное окно
-                self.start_main_window(real_mode=True)
+                # Проверяем баланс и другие критерии
+                if self.initialize_and_check_criteria():
+                    # Успешная инициализация - открываем основное окно
+                    self.start_main_window(real_mode=True)
+                else:
+                    # Не прошли критерии - показываем ошибку и окно аутентификации
+                    print("Ошибка: Не выполнены критерии для торговли")
+                    self.start_auth_window()
             else:
                 # Неверные ключи - показываем окно аутентификации
+                print("Ошибка: Неверные API-ключи")
                 self.start_auth_window()
         else:
-            # Нет сохраненных ключей - показываем окно аутентификации
+            # Нет сохраненных ключей - запрашиваем ключи у пользователя
+            print("Пожалуйста, введите API-ключи для подключения к BingX")
             self.start_auth_window()
+    
+    def initialize_and_check_criteria(self):
+        """
+        Инициализация и проверка критериев для торговли
+        Возвращает True если все критерии выполнены, иначе False
+        """
+        try:
+            # Проверяем баланс
+            balance_data = self.api.get_balance()
+            if 'data' not in balance_data or 'balances' not in balance_data['data']:
+                print("Ошибка: Не удалось получить баланс")
+                return False
+            
+            # Проверяем USDT баланс
+            usdt_balance = 0
+            for balance in balance_data['data']['balances']:
+                if balance['asset'] == 'USDT':
+                    usdt_balance = float(balance['walletBalance'])
+                    break
+            
+            if usdt_balance <= 0:
+                print(f"Ошибка: Недостаточно средств. Баланс: {usdt_balance} USDT")
+                return False
+            
+            # Проверяем другие критерии (например, минимальный баланс для торговли)
+            if usdt_balance < 10:  # Минимальный порог для торговли
+                print(f"Ошибка: Баланс слишком мал для торговли. Требуется минимум 10 USDT, текущий: {usdt_balance}")
+                return False
+            
+            # Проверяем возможность получения цен
+            market_data = self.api.get_market_price('BTC-USDT')
+            if 'data' not in market_data or len(market_data['data']) == 0:
+                print("Ошибка: Не удалось получить рыночные данные")
+                return False
+            
+            # Здесь можно добавить другие проверки
+            
+            print(f"Инициализация успешна. Баланс: {usdt_balance} USDT")
+            return True
+            
+        except Exception as e:
+            print(f"Ошибка при инициализации: {e}")
+            return False
     
     def start_auth_window(self):
         """Запуск окна аутентификации"""

@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import pickle
+import requests  # Для получения данных с публичных источников
 
 
 Base = declarative_base()
@@ -77,15 +78,18 @@ class AIAgent:
     def generate_signal(self, symbol):
         """Генерация торгового сигнала для указанной монеты"""
         try:
-            # Получаем рыночные данные
+            # Получаем рыночные данные из BingX (торговые функции)
             kline_data = self.api.get_kline_data(symbol, interval='15m', limit=50)
             price_data = self.api.get_market_price(symbol)
             orderbook = self.api.get_orderbook(symbol)
             oi_data = self.api.get_open_interest(symbol)
             funding_data = self.api.get_funding_rate(symbol)
             
+            # Получаем дополнительные данные с публичных источников (для графиков и анализа)
+            external_market_data = self._get_external_market_data(symbol)
+            
             # Обрабатываем данные и генерируем признаки
-            features = self._extract_features(kline_data, price_data, orderbook, oi_data, funding_data)
+            features = self._extract_features(kline_data, price_data, orderbook, oi_data, funding_data, external_market_data)
             
             # Получаем вероятность успеха от модели
             confidence = self._predict_success_probability(features)
@@ -141,9 +145,26 @@ class AIAgent:
         
         return None
     
-    def _extract_features(self, kline_data, price_data, orderbook, oi_data, funding_data):
+    def _get_external_market_data(self, symbol):
+        """Получение данных с публичных источников (для графиков и анализа)"""
+        # Заменяем формат символа для публичных API (например, Binance)
+        binance_symbol = symbol.replace('-', '')
+        
+        try:
+            # Получаем данные с Binance API для графиков
+            response = requests.get(f"https://api.binance.com/api/v3/klines", 
+                                  params={'symbol': binance_symbol, 'interval': '15m', 'limit': 100})
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return None
+        except Exception as e:
+            print(f"Ошибка при получении внешних данных: {e}")
+            return None
+    
+    def _extract_features(self, kline_data, price_data, orderbook, oi_data, funding_data, external_market_data):
         """Извлечение признаков из рыночных данных"""
-        # Извлекаем цены из свечей
+        # Извлекаем цены из свечей BingX
         if 'data' in kline_data and len(kline_data['data']) > 0:
             closes = [float(candle[4]) for candle in kline_data['data']]
             opens = [float(candle[1]) for candle in kline_data['data']]
@@ -208,6 +229,18 @@ class AIAgent:
         hour = current_time.hour / 24.0  # Нормализуем
         day_of_week = current_time.weekday() / 7.0  # Нормализуем
         
+        # Добавляем признаки из внешних данных, если доступны
+        external_features = []
+        if external_market_data:
+            try:
+                ext_closes = [float(candle[4]) for candle in external_market_data]
+                ext_volatility = np.std(ext_closes[-20:]) if len(ext_closes) >= 20 else 0
+                external_features = [ext_volatility]
+            except:
+                external_features = [0]
+        else:
+            external_features = [0]
+        
         # Собираем признаки
         features = np.array([
             current_price,
@@ -230,7 +263,7 @@ class AIAgent:
             sum(volumes),  # Общий объем
             closes[-1] - closes[-2] if len(closes) > 1 else 0,  # Изменение цены за последнюю свечу
             closes[-1] - sum(closes[-5:]) / 5 if len(closes) >= 5 else 0  # Отклонение от средней 5-свечей
-        ])
+        ] + external_features)
         
         return features
     
@@ -417,3 +450,70 @@ class AIAgent:
             'avg_confidence_success': avg_conf_success,
             'avg_confidence_failure': avg_conf_failure
         }
+    
+    def analyze_market_situation(self, symbol):
+        """Анализ текущей рыночной ситуации и генерация устного отчета"""
+        try:
+            # Получаем данные
+            kline_data = self.api.get_kline_data(symbol, interval='1h', limit=50)
+            price_data = self.api.get_market_price(symbol)
+            orderbook = self.api.get_orderbook(symbol)
+            
+            if 'data' not in kline_data or len(kline_data['data']) < 20:
+                return f"Недостаточно данных для анализа {symbol}"
+            
+            closes = [float(candle[4]) for candle in kline_data['data']]
+            highs = [float(candle[2]) for candle in kline_data['data']]
+            lows = [float(candle[3]) for candle in kline_data['data']]
+            
+            current_price = float(price_data['data'][0]['price']) if price_data.get('data') else closes[-1]
+            
+            # Рассчитываем индикаторы
+            sma_20 = sum(closes[-20:]) / 20
+            sma_50 = sum(closes[-50:]) / 50 if len(closes) >= 50 else sma_20
+            price_change_24h = ((closes[-1] - closes[0]) / closes[0]) * 100 if len(closes) > 0 else 0
+            
+            # Определяем тренд
+            if current_price > sma_20 and sma_20 > sma_50:
+                trend = "восходящий"
+            elif current_price < sma_20 and sma_20 < sma_50:
+                trend = "нисходящий"
+            else:
+                trend = "боковой"
+            
+            # Определяем ликвидность по стакану
+            bids_total = sum([float(order[1]) for order in orderbook.get('data', {}).get('bids', [])[:10]])
+            asks_total = sum([float(order[1]) for order in orderbook.get('data', {}).get('asks', [])[:10]])
+            liquidity_ratio = bids_total / (asks_total + 1e-10)
+            
+            if liquidity_ratio > 1.2:
+                liquidity = "высокая"
+            elif liquidity_ratio < 0.8:
+                liquidity = "низкая"
+            else:
+                liquidity = "средняя"
+            
+            # Генерируем устный анализ
+            analysis = f"""
+            Анализ рынка для {symbol}:
+            - Текущая цена: {current_price:.4f} USDT
+            - 24-часовое изменение: {price_change_24h:+.2f}%
+            - Тренд: {trend}
+            - Уровень ликвидности: {liquidity}
+            
+            Технический анализ:
+            - Цена находится {'выше' if current_price > sma_20 else 'ниже'} 20-периодной скользящей средней
+            - SMA20: {sma_20:.4f}, SMA50: {sma_50:.4f}
+            
+            Рекомендация: {'Трендовый рост возможен' if trend == 'восходящий' else 'Возможен откат' if trend == 'нисходящий' else 'Неопределенная ситуация'}
+            """
+            
+            return analysis.strip()
+            
+        except Exception as e:
+            return f"Ошибка при анализе рынка {symbol}: {str(e)}"
+    
+    def speak_analysis(self, symbol):
+        """Функция для озвучивания анализа (возвращает текст для синтеза речи)"""
+        analysis = self.analyze_market_situation(symbol)
+        return analysis
