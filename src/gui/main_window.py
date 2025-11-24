@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QLabel, QPushButton, QComboBox, QCheckBox, QTextEdit, QFrame
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QUrl
 from PyQt6.QtGui import QFont
 from PyQt6.QtMultimedia import QSoundEffect  # Для звуковых уведомлений
 import os
@@ -114,17 +114,18 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(pnl_frame)
         
-        # Баланс (только в реальном режиме)
-        if self.real_mode:
-            balance_label = QLabel('Баланс:')
-            balance_label.setFont(QFont('Arial', 12, QFont.Weight.Bold))
-            layout.addWidget(balance_label)
-            
-            self.balance_text = QTextEdit()
-            self.balance_text.setMaximumHeight(80)
-            self.balance_text.setReadOnly(True)
-            layout.addWidget(self.balance_text)
-        else:
+        # Баланс (в обоих режимах)
+        balance_label = QLabel('Баланс:')
+        balance_label.setFont(QFont('Arial', 12, QFont.Weight.Bold))
+        layout.addWidget(balance_label)
+        
+        self.balance_text = QTextEdit()
+        self.balance_text.setMaximumHeight(80)
+        self.balance_text.setReadOnly(True)
+        layout.addWidget(self.balance_text)
+        
+        # В демо-режиме добавляем пометку
+        if not self.real_mode:
             demo_label = QLabel('ДЕМО-РЕЖИМ\nНИКАКИХ РЕАЛЬНЫХ СДЕЛОК')
             demo_label.setStyleSheet('background-color: rgba(255, 165, 0, 150); color: black; font-weight: bold; padding: 10px; border-radius: 5px;')
             demo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -200,11 +201,10 @@ class MainWindow(QMainWindow):
     
     def setup_timers(self):
         """Настройка таймеров для обновления данных"""
-        # Таймер обновления баланса (только в реальном режиме)
-        if self.real_mode:
-            self.balance_timer = QTimer()
-            self.balance_timer.timeout.connect(self.update_balance)
-            self.balance_timer.start(30000)  # Обновление каждые 30 секунд
+        # Таймер обновления баланса (в обоих режимах)
+        self.balance_timer = QTimer()
+        self.balance_timer.timeout.connect(self.update_balance)
+        self.balance_timer.start(30000)  # Обновление каждые 30 секунд
         
         # Таймер обновления графика
         self.chart_timer = QTimer()
@@ -307,25 +307,25 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(dark_style)
     
     def update_balance(self):
-        """Обновление баланса (только в реальном режиме)"""
-        if self.real_mode:
-            try:
-                balance_data = self.api.get_balance()
-                if balance_data and 'data' in balance_data:
-                    balances = balance_data['data']['balances']
-                    balance_text = ''
-                    for asset_balance in balances:
-                        asset = asset_balance['asset']
-                        balance = asset_balance['walletBalance']
-                        unrealized = asset_balance['unrealizedProfit']
-                        margin_balance = asset_balance.get('marginBalance', balance)
-                        balance_text += f"{asset}: {balance} (PNL: {unrealized})\n"
+        """Обновление баланса (в обоих режимах)"""
+        try:
+            balance_data = self.api.get_balance()
+            if balance_data and 'data' in balance_data:
+                balances = balance_data['data']['balances']
+                balance_text = ''
+                for asset_balance in balances:
+                    asset = asset_balance['asset']
+                    balance = asset_balance['walletBalance']
+                    unrealized = asset_balance['unrealizedProfit']
+                    margin_balance = asset_balance.get('marginBalance', balance)
+                    balance_text += f"{asset}: {balance} (PNL: {unrealized})\n"
+                if hasattr(self, 'balance_text'):
                     self.balance_text.setPlainText(balance_text)
-                
-                # Обновляем PnL дисплей
-                self.update_pnl_display()
-            except Exception as e:
-                print(f"Ошибка обновления баланса: {e}")
+            
+            # Обновляем PnL дисплей
+            self.update_pnl_display()
+        except Exception as e:
+            print(f"Ошибка обновления баланса: {e}")
     
     def update_chart(self):
         """Обновление графика"""
@@ -343,13 +343,20 @@ class MainWindow(QMainWindow):
     
     def on_ai_agent_clicked(self):
         """Обработка нажатия кнопки ИИ-агента"""
-        signal = self.ai_agent.generate_signal(self.current_symbol)
-        if signal:
-            self.display_signal(signal)
-            # Воспроизводим звук при генерации сигнала
-            self.play_trade_sound()
-        else:
-            self.signals_area.append("Нет подходящих сигналов для данной пары")
+        if self.ai_agent is None:
+            self.signals_area.append("Ошибка: ИИ-агент не инициализирован")
+            return
+            
+        try:
+            signal = self.ai_agent.generate_signal(self.current_symbol)
+            if signal:
+                self.display_signal(signal)
+                # Воспроизводим звук при генерации сигнала
+                self.play_trade_sound()
+            else:
+                self.signals_area.append("Нет подходящих сигналов для данной пары")
+        except Exception as e:
+            self.signals_area.append(f"Ошибка при генерации сигнала: {str(e)}")
     
     def display_signal(self, signal):
         """Отображение сигнала в интерфейсе"""
@@ -404,26 +411,42 @@ class MainWindow(QMainWindow):
     
     def retrain_ai_model(self):
         """Переобучение ИИ-модели"""
-        if self.ai_agent.should_retrain():
-            try:
-                self.ai_agent.train_model()
-                print("Модель ИИ успешно переобучена")
-            except Exception as e:
-                print(f"Ошибка переобучения модели ИИ: {e}")
+        if self.ai_agent is None:
+            print("Ошибка: ИИ-агент не инициализирован")
+            return
+            
+        try:
+            if self.ai_agent.should_retrain():
+                try:
+                    self.ai_agent.train_model()
+                    print("Модель ИИ успешно переобучена")
+                except Exception as e:
+                    print(f"Ошибка переобучения модели ИИ: {e}")
+        except Exception as e:
+            print(f"Ошибка проверки необходимости переобучения: {e}")
     
     def show_ai_stats(self):
         """Отображение статистики по эффективности ИИ"""
-        stats = self.ai_agent.get_performance_stats()
-        
-        stats_text = (
-            f"Статистика ИИ-модели:\n"
-            f"Всего сигналов: {stats['total_signals']}\n"
-            f"Успешных: {stats['successful_signals']}\n"
-            f"Процент успеха: {stats['win_rate']*100:.1f}%\n"
-            f"Средняя уверенность (успех): {stats['avg_confidence_success']:.2f}\n"
-            f"Средняя уверенность (провал): {stats['avg_confidence_failure']:.2f}\n"
-        )
-        
-        # Показываем в signals_area
-        self.signals_area.clear()
-        self.signals_area.append(stats_text)
+        if self.ai_agent is None:
+            self.signals_area.clear()
+            self.signals_area.append("Ошибка: ИИ-агент не инициализирован")
+            return
+            
+        try:
+            stats = self.ai_agent.get_performance_stats()
+            
+            stats_text = (
+                f"Статистика ИИ-модели:\n"
+                f"Всего сигналов: {stats['total_signals']}\n"
+                f"Успешных: {stats['successful_signals']}\n"
+                f"Процент успеха: {stats['win_rate']*100:.1f}%\n"
+                f"Средняя уверенность (успех): {stats['avg_confidence_success']:.2f}\n"
+                f"Средняя уверенность (провал): {stats['avg_confidence_failure']:.2f}\n"
+            )
+            
+            # Показываем в signals_area
+            self.signals_area.clear()
+            self.signals_area.append(stats_text)
+        except Exception as e:
+            self.signals_area.clear()
+            self.signals_area.append(f"Ошибка при получении статистики: {str(e)}")
