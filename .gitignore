@@ -24,12 +24,13 @@ node_modules/
 .vscode/
 .idea/
 
-# Coverage
+# Test coverage
 .coverage
 coverage/
 htmlcov/
 
-# Testing
-.pytest_cache/
-.mypy_cache/
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
 ```
