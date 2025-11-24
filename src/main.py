@@ -47,6 +47,9 @@ class FuturesScoutApp:
         
     def start_main_window(self, real_mode=True):
         """Запуск основного окна"""
+        # Ensure AI agent is initialized
+        if self.ai_agent is None:
+            self.ai_agent = AIAgent(self.api, demo_mode=not real_mode)
         self.main_window = MainWindow(self.api, self.ai_agent, real_mode)
         self.main_window.show()
         
