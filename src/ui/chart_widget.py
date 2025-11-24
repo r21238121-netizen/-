@@ -1,10 +1,14 @@
 """
-Виджет для отображения графика с помощью QWebEngineView и Lightweight Charts
+Виджет для отображения графика с помощью matplotlib и matplotlib.backends.backend_agg
 """
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import QTimer
-import json
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt6.QtCore import QTimer, Qt
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import numpy as np
+import pandas as pd
 
 
 class ChartWidget(QWidget):
@@ -19,112 +23,19 @@ class ChartWidget(QWidget):
     def init_ui(self):
         layout = QVBoxLayout(self)
         
-        # Создаем веб-виджет для отображения графика
-        self.web_view = QWebEngineView()
+        # Создаем matplotlib figure и canvas
+        self.figure = Figure(figsize=(12, 6), dpi=100)
+        self.canvas = FigureCanvas(self.figure)
         
-        # Загружаем HTML с графиком
-        self.load_chart_html()
+        # Добавляем placeholder текст
+        self.placeholder = QLabel("Загрузка графика...")
+        self.placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        layout.addWidget(self.web_view)
+        layout.addWidget(self.canvas)
         self.setLayout(layout)
-    
-    def load_chart_html(self):
-        """Загрузка HTML с графиком Lightweight Charts"""
-        html_content = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Lightweight Charts Example</title>
-            <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
-            <style>
-                body { margin: 0; padding: 0; background-color: #000; }
-                #chart-container { width: 100%; height: 100%; }
-            </style>
-        </head>
-        <body>
-            <div id="chart-container"></div>
-            <script>
-                // Инициализация графика
-                const chartContainer = document.getElementById('chart-container');
-                const chart = LightweightCharts.createChart(chartContainer, {
-                    width: chartContainer.clientWidth,
-                    height: chartContainer.clientHeight,
-                    layout: {
-                        backgroundColor: '#000',
-                        textColor: '#fff',
-                    },
-                    grid: {
-                        vertLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                        horzLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                    },
-                    timeScale: {
-                        timeVisible: true,
-                        secondsVisible: false,
-                    },
-                });
-                
-                // Создаем серию свечей
-                const candleSeries = chart.addCandlestickSeries({
-                    upColor: '#26a69a',
-                    downColor: '#ef5350',
-                    borderDownColor: '#ef5350',
-                    borderUpColor: '#26a69a',
-                    wickDownColor: '#ef5350',
-                    wickUpColor: '#26a69a',
-                });
-                
-                // Добавляем данные (заглушка, будет обновляться через Python)
-                const initialData = [];
-                for (let i = 0; i < 50; i++) {
-                    const time = new Date(Date.now() - (50 - i) * 24 * 60 * 60 * 1000);
-                    initialData.push({
-                        time: time.toISOString().split('T')[0],
-                        open: 100 + Math.random() * 10,
-                        high: 105 + Math.random() * 10,
-                        low: 95 + Math.random() * 10,
-                        close: 100 + Math.random() * 10,
-                    });
-                }
-                
-                candleSeries.setData(initialData);
-                
-                // Обработка изменения размера окна
-                window.addEventListener('resize', () => {
-                    chart.applyOptions({
-                        width: chartContainer.clientWidth,
-                        height: chartContainer.clientHeight,
-                    });
-                });
-                
-                // Функция для обновления данных графика
-                window.updateChartData = function(data) {
-                    candleSeries.setData(data);
-                };
-                
-                // Функция для добавления маркеров сигналов
-                window.addSignalMarker = function(time, position, color, shape) {
-                    // Добавляем маркер на график
-                    // position: 'aboveBar', 'belowBar', 'inBar'
-                    // shape: 'circle', 'square', 'arrowUp', 'arrowDown'
-                    candleSeries.setData([...candleSeries.data(), {
-                        time: time,
-                        open: 0,
-                        high: 0,
-                        low: 0,
-                        close: 0,
-                        marker: {
-                            position: position,
-                            color: color,
-                            shape: shape,
-                        }
-                    }]);
-                };
-            </script>
-        </body>
-        </html>
-        """
         
-        self.web_view.setHtml(html_content)
+        # Обновляем график
+        self.update_chart()
     
     def update_chart(self, symbol=None):
         """Обновление данных графика"""
@@ -136,23 +47,75 @@ class ChartWidget(QWidget):
             kline_data = self.api.get_kline_data(self.symbol, interval=self.timeframe, limit=100)
             
             if 'data' in kline_data:
-                chart_data = []
-                for kline in kline_data['data']:
-                    chart_data.append({
-                        'time': self.format_timestamp(kline[0]),  # timestamp
-                        'open': float(kline[1]),
-                        'high': float(kline[2]),
-                        'low': float(kline[3]),
-                        'close': float(kline[4])
-                    })
+                # Очищаем предыдущий график
+                self.figure.clear()
                 
-                # Обновляем график
-                js_code = f"""
-                window.updateChartData({json.dumps(chart_data)});
-                """
-                self.web_view.page().runJavaScript(js_code)
+                # Создаем subplot
+                ax = self.figure.add_subplot(111)
+                
+                # Извлекаем данные свечей
+                timestamps = []
+                opens = []
+                highs = []
+                lows = []
+                closes = []
+                
+                for kline in kline_data['data']:
+                    timestamps.append(kline[0])  # timestamp
+                    opens.append(float(kline[1]))
+                    highs.append(float(kline[2]))
+                    lows.append(float(kline[3]))
+                    closes.append(float(kline[4]))
+                
+                # Преобразуем timestamps в индексы для оси X
+                x = range(len(timestamps))
+                
+                # Рисуем свечи (упрощенно - как столбцы)
+                colors = ['green' if close >= open else 'red' for close, open in zip(closes, opens)]
+                
+                # Рисуем тени (диапазон между high и low)
+                for i, (high, low) in enumerate(zip(highs, lows)):
+                    ax.plot([i, i], [low, high], color='black', linewidth=0.5)
+                
+                # Рисуем тело свечи (между open и close)
+                for i, (open_price, close_price) in enumerate(zip(opens, closes)):
+                    color = 'green' if close_price >= open_price else 'red'
+                    height = abs(close_price - open_price)
+                    bottom = min(open_price, close_price)
+                    
+                    # Рисуем прямоугольник для тела свечи
+                    ax.bar(i, height, bottom=bottom, width=0.6, color=color, edgecolor='black', linewidth=0.3)
+                
+                ax.set_title(f'График {self.symbol}')
+                ax.set_xlabel('Время')
+                ax.set_ylabel('Цена')
+                
+                # Поворачиваем метки на оси X для лучшего отображения
+                ax.tick_params(axis='x', rotation=45)
+                
+                # Обновляем canvas
+                self.figure.tight_layout()
+                self.canvas.draw()
+            else:
+                # Если данных нет, показываем сообщение
+                self.figure.clear()
+                ax = self.figure.add_subplot(111)
+                ax.text(0.5, 0.5, 'Нет данных для отображения', 
+                       horizontalalignment='center', verticalalignment='center',
+                       transform=ax.transAxes, fontsize=14)
+                ax.set_title(f'График {self.symbol}')
+                self.canvas.draw()
+                
         except Exception as e:
             print(f"Ошибка обновления графика: {e}")
+            # Показываем сообщение об ошибке
+            self.figure.clear()
+            ax = self.figure.add_subplot(111)
+            ax.text(0.5, 0.5, f'Ошибка загрузки данных: {str(e)}', 
+                   horizontalalignment='center', verticalalignment='center',
+                   transform=ax.transAxes, fontsize=14)
+            ax.set_title(f'График {self.symbol}')
+            self.canvas.draw()
     
     def format_timestamp(self, timestamp_ms):
         """Форматирование timestamp в нужный формат для графика"""
@@ -164,3 +127,5 @@ class ChartWidget(QWidget):
         """Обновление символа для графика"""
         self.symbol = symbol
         self.update_chart()
+    
+
