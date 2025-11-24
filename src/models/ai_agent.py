@@ -40,14 +40,16 @@ class AIAgent:
         self.demo_mode = demo_mode
         
         # Настройка базы данных для хранения истории сигналов
-        db_path = os.path.join(os.path.expanduser("~"), ".futures_scout", "signals_history.db")
+        db_dir = os.path.join(os.path.expanduser("~"), ".futures_scout")
+        os.makedirs(db_dir, exist_ok=True)  # Создаем директорию если не существует
+        db_path = os.path.join(db_dir, "signals_history.db")
         self.engine = create_engine(f'sqlite:///{db_path}')
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
         
         # Путь к модели
-        self.model_path = os.path.join(os.path.expanduser("~"), ".futures_scout", "ai_model.pkl")
+        self.model_path = os.path.join(db_dir, "ai_model.pkl")
         
         # Загружаем или создаем модель
         self.model = self._load_model()
@@ -563,6 +565,15 @@ class AIAgent:
             price_data = self.api.get_market_price(symbol)
             orderbook = self.api.get_orderbook(symbol)
             
+            # Получаем данные по позициям и балансу для более полного анализа
+            try:
+                positions = self.api.get_positions(symbol)
+                balance = self.api.get_balance()
+            except:
+                # В демо-режиме или при ошибках - продолжаем без этих данных
+                positions = {'data': []}
+                balance = {'data': {'balances': []}}
+            
             if 'data' not in kline_data or len(kline_data['data']) < 20:
                 return f"Недостаточно данных для анализа {symbol}"
             
@@ -597,6 +608,23 @@ class AIAgent:
             else:
                 liquidity = "средняя"
             
+            # Информация о позициях
+            position_info = ""
+            if 'data' in positions and positions['data']:
+                for pos in positions['data']:
+                    if pos.get('symbol') == symbol and float(pos.get('positionAmt', 0)) != 0:
+                        unrealized_pnl = float(pos.get('unrealizedProfit', 0))
+                        position_info = f"\n- Открытая позиция: {pos.get('positionSide')} {pos.get('positionAmt')} @ {pos.get('entryPrice')}, PnL: {unrealized_pnl:.4f} USDT"
+                        break
+            
+            # Информация о балансе
+            balance_info = ""
+            if 'data' in balance and 'balances' in balance['data']:
+                for bal in balance['data']['balances']:
+                    if bal.get('asset') == 'USDT':
+                        balance_info = f"\n- Баланс: {bal.get('walletBalance')} USDT"
+                        break
+            
             # Генерируем устный анализ
             analysis = f"""
             Анализ рынка для {symbol}:
@@ -604,6 +632,7 @@ class AIAgent:
             - 24-часовое изменение: {price_change_24h:+.2f}%
             - Тренд: {trend}
             - Уровень ликвидности: {liquidity}
+            {balance_info}{position_info}
             
             Технический анализ:
             - Цена находится {'выше' if current_price > sma_20 else 'ниже'} 20-периодной скользящей средней
@@ -621,3 +650,62 @@ class AIAgent:
         """Функция для озвучивания анализа (возвращает текст для синтеза речи)"""
         analysis = self.analyze_market_situation(symbol)
         return analysis
+    
+    def analyze_trading_performance(self, symbol, days=30):
+        """Анализ торговой эффективности за указанный период"""
+        try:
+            # Получаем историю доходов
+            import datetime
+            end_time = int(datetime.datetime.now().timestamp() * 1000)
+            start_time = end_time - (days * 24 * 60 * 60 * 1000)  # N дней назад
+            
+            income_history = self.api.get_income_history(
+                symbol=symbol,
+                start_time=start_time,
+                end_time=end_time,
+                limit=1000
+            )
+            
+            # Получаем комиссионные ставки
+            commission_data = self.api.get_commission_rate(symbol)
+            
+            total_pnl = 0
+            realized_pnl_count = 0
+            funding_fees = 0
+            funding_fee_count = 0
+            commission_costs = 0
+            
+            if 'data' in income_history:
+                for income in income_history['data']:
+                    income_type = income.get('incomeType', '')
+                    income_amount = float(income.get('income', 0))
+                    
+                    if income_type == 'REALIZED_PNL':
+                        total_pnl += income_amount
+                        realized_pnl_count += 1
+                    elif income_type == 'FUNDING_FEE':
+                        funding_fees += income_amount
+                        funding_fee_count += 1
+                    elif income_type in ['COMMISSION', 'TRADING_FEE']:
+                        commission_costs += abs(income_amount)
+            
+            # Получаем текущие комиссионные ставки
+            maker_rate = float(commission_data.get('data', {}).get('maker', 0))
+            taker_rate = float(commission_data.get('data', {}).get('taker', 0))
+            
+            performance_analysis = f"""
+            Анализ эффективности торговли по {symbol} за последние {days} дней:
+            - Общий PnL: {total_pnl:.4f} USDT
+            - Закрытых позиций: {realized_pnl_count}
+            - Комиссии: {commission_costs:.4f} USDT
+            - Финансирование: {funding_fees:.4f} USDT ({funding_fee_count} операций)
+            - Комиссия (maker): {maker_rate*100:.4f}%
+            - Комиссия (taker): {taker_rate*100:.4f}%
+            
+            Средняя прибыль на сделку: {total_pnl/realized_pnl_count if realized_pnl_count > 0 else 0:.4f} USDT
+            """
+            
+            return performance_analysis.strip()
+            
+        except Exception as e:
+            return f"Ошибка при анализе эффективности торговли {symbol}: {str(e)}"
