@@ -24,6 +24,9 @@ class BingXAPI:
     
     def _generate_signature(self, params_str):
         """Генерация подписи для запроса"""
+        if not self.secret_key:
+            raise ValueError("Secret key is required for signing requests")
+        
         signature = hmac.new(
             self.secret_key.encode('utf-8'),
             params_str.encode('utf-8'),
@@ -77,7 +80,7 @@ class BingXAPI:
                     ]
                 }
             }
-        elif '/position/list' in endpoint:
+        elif '/user/positions' in endpoint:
             return {
                 "code": 0,
                 "msg": "",
@@ -91,6 +94,39 @@ class BingXAPI:
                         "positionSide": "LONG"
                     }
                 ]
+            }
+        elif '/user/income' in endpoint:
+            return {
+                "code": 0,
+                "msg": "",
+                "data": [
+                    {
+                        "symbol": "BTC-USDT",
+                        "incomeType": "REALIZED_PNL",
+                        "income": "25.50",
+                        "asset": "USDT",
+                        "time": int(time.time() * 1000),
+                        "info": "Realized PnL for closed position"
+                    },
+                    {
+                        "symbol": "ETH-USDT",
+                        "incomeType": "FUNDING_FEE",
+                        "income": "-1.20",
+                        "asset": "USDT",
+                        "time": int(time.time() * 1000) - 3600000,  # 1 hour ago
+                        "info": "Funding fee"
+                    }
+                ]
+            }
+        elif '/user/commissionRate' in endpoint:
+            return {
+                "code": 0,
+                "msg": "",
+                "data": {
+                    "symbol": "BTC-USDT",
+                    "maker": "0.0002",
+                    "taker": "0.0005"
+                }
             }
         elif '/trade/myTrades' in endpoint:
             return {
@@ -126,10 +162,16 @@ class BingXAPI:
     
     def validate_credentials(self):
         """Проверка валидности API-ключей"""
+        if self.demo_mode:
+            # В демо-режиме всегда возвращаем True
+            return True
+        
         try:
-            result = self._make_request('GET', '/openApi/swap/v2/user/balance', sign=True)
+            result = self._make_request('GET', '/openApi/swap/v3/user/balance', sign=True)
             return result.get('code') == 0
-        except:
+        except Exception as e:
+            # Логируем ошибку для отладки, но возвращаем False
+            print(f"Ошибка при проверке валидности API-ключей: {e}")
             return False
     
     # Управление ордерами
@@ -190,9 +232,12 @@ class BingXAPI:
         return self._make_request('GET', '/openApi/swap/v2/trade/allOrders', params=params, sign=True)
     
     # Позиции
-    def get_positions(self):
+    def get_positions(self, symbol=None):
         """Список открытых позиций"""
-        return self._make_request('GET', '/openApi/swap/v2/position/list', sign=True)
+        params = {}
+        if symbol:
+            params['symbol'] = symbol
+        return self._make_request('GET', '/openApi/swap/v2/user/positions', params=params, sign=True)
     
     def close_position(self, symbol, position_side='BOTH'):
         """Закрыть позицию рыночным ордером"""
@@ -234,11 +279,29 @@ class BingXAPI:
     # Баланс и счёт
     def get_balance(self):
         """Получить баланс аккаунта"""
-        return self._make_request('GET', '/openApi/swap/v2/user/balance', sign=True)
+        return self._make_request('GET', '/openApi/swap/v3/user/balance', sign=True)
     
     def get_account_info(self):
         """Информация о счёте (режим маржи, плечо и т.д.)"""
         return self._make_request('GET', '/openApi/swap/v2/user/account', sign=True)
+    
+    def get_income_history(self, symbol=None, income_type=None, start_time=None, end_time=None, limit=1000):
+        """История прибыли/убытков (PnL, комиссии, финансирование и т.д.)"""
+        params = {'limit': limit}
+        if symbol:
+            params['symbol'] = symbol
+        if income_type:
+            params['incomeType'] = income_type
+        if start_time:
+            params['startTime'] = start_time
+        if end_time:
+            params['endTime'] = end_time
+        return self._make_request('GET', '/openApi/swap/v2/user/income', params=params, sign=True)
+    
+    def get_commission_rate(self, symbol):
+        """Текущие комиссии для символа"""
+        params = {'symbol': symbol}
+        return self._make_request('GET', '/openApi/swap/v2/user/commissionRate', params=params, sign=True)
     
     # История сделок
     def get_my_trades(self, symbol, limit=500):
