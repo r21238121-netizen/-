@@ -11,6 +11,7 @@ from typing import Dict, Optional, Any
 import logging
 
 from config import config
+from bingx_endpoints import ALL_ENDPOINTS
 
 
 class BingXClient:
@@ -109,7 +110,7 @@ class BingXClient:
             Account balance data
         """
         if self.mode == "swap":
-            endpoint = "/openApi/swap/v3/user/balance"
+            endpoint = ALL_ENDPOINTS['get_balance']
         else:
             endpoint = "/openApi/spot/v1/account/balances"
         
@@ -143,7 +144,7 @@ class BingXClient:
             Order placement result
         """
         if self.mode == "swap":
-            endpoint = "/openApi/swap/v2/trade/order"
+            endpoint = ALL_ENDPOINTS['place_order']
             params = {
                 "symbol": symbol,
                 "side": side,
@@ -236,37 +237,30 @@ class BingXClient:
             Position data or None if in spot mode
         """
         if self.mode == "swap":
-            # Try multiple endpoint variations as the API might have changed
-            endpoints_to_try = [
-                "/openApi/swap/v2/position/list",
-                "/openApi/swap/v1/position/list",
-                "/openApi/swap/position/list",
-                "/openApi/position/list"
-            ]
+            endpoint = ALL_ENDPOINTS['get_positions']
             
             params = {"timestamp": int(time.time() * 1000)}
             params["signature"] = self._sign(params)
 
             headers = {"X-BX-APIKEY": self.api_key}
             
-            for endpoint in endpoints_to_try:
-                try:
-                    async with self.session.get(f"{self.base_url}{endpoint}", headers=headers, params=params) as resp:
-                        result = await resp.json()
-                        if result.get("code") == 0 or (result.get("code") != 100400 and "not exist" not in result.get("msg", "")):
-                            self.logger.info(f"Positions retrieved: {result}")
-                            return result
-                except Exception as e:
-                    self.logger.error(f"Error trying positions endpoint {endpoint}: {e}")
-                    continue
-            
-            # If all endpoints fail, return an error response that matches expected format
-            self.logger.error("Unable to retrieve positions - all endpoints failed")
-            return {
-                "code": 100400,
-                "msg": "Unable to retrieve positions - all endpoints failed",
-                "data": []
-            }
+            try:
+                async with self.session.get(f"{self.base_url}{endpoint}", headers=headers, params=params) as resp:
+                    result = await resp.json()
+                    if result.get("code") == 0:
+                        self.logger.info(f"Positions retrieved: {result}")
+                        return result
+                    else:
+                        self.logger.error(f"Error retrieving positions: {result}")
+                        return result
+            except Exception as e:
+                self.logger.error(f"Error getting positions: {e}")
+                # Return an error response that matches expected format
+                return {
+                    "code": 100400,
+                    "msg": f"Unable to retrieve positions: {str(e)}",
+                    "data": []
+                }
         else:
             self.logger.warning("Positions not available in spot mode")
             print("❌ В споте нет позиций")
@@ -401,7 +395,7 @@ class BingXClient:
             List of open orders
         """
         if self.mode == "swap":
-            endpoint = "/openApi/swap/v2/trade/openOrders"
+            endpoint = ALL_ENDPOINTS['get_open_orders']
         else:
             endpoint = "/openApi/spot/v1/trade/openOrders"
             
@@ -432,20 +426,26 @@ class BingXClient:
             Cancellation result
         """
         if self.mode == "swap":
-            endpoint = "/openApi/swap/v2/trade/cancel"
+            endpoint = ALL_ENDPOINTS['cancel_order']
+            params = {
+                "symbol": symbol,
+                "orderId": order_id,
+                "timestamp": int(time.time() * 1000)
+            }
+            params["signature"] = self._sign(params)
         else:
             endpoint = "/openApi/spot/v1/trade/cancel"
-            
-        params = {
-            "symbol": symbol,
-            "orderId": order_id,
-            "timestamp": int(time.time() * 1000)
-        }
-        params["signature"] = self._sign(params)
+            params = {
+                "symbol": symbol,
+                "orderId": order_id,
+                "timestamp": int(time.time() * 1000)
+            }
+            params["signature"] = self._sign(params)
 
         headers = {"X-BX-APIKEY": self.api_key}
         try:
-            async with self.session.post(f"{self.base_url}{endpoint}", headers=headers, params=params) as resp:
+            # Note: According to user data, cancel_order uses DELETE method
+            async with self.session.delete(f"{self.base_url}{endpoint}", headers=headers, params=params) as resp:
                 result = await resp.json()
                 self.logger.info(f"Order {order_id} cancelled: {result}")
                 return result
@@ -465,7 +465,7 @@ class BingXClient:
         Returns:
             Kline/candlestick data
         """
-        endpoint = "/openApi/swap/v2/quote/klines"
+        endpoint = ALL_ENDPOINTS['get_kline_data']
         params = {
             "symbol": symbol,
             "interval": interval,
@@ -491,9 +491,10 @@ class BingXClient:
         Returns:
             Order book depth data
         """
-        endpoint = f"/openApi/swap/v2/quote/depth?symbol={symbol}"
+        endpoint = ALL_ENDPOINTS['get_orderbook']
+        params = {"symbol": symbol}
         try:
-            async with self.session.get(f"{self.base_url}{endpoint}") as resp:
+            async with self.session.get(f"{self.base_url}{endpoint}", params=params) as resp:
                 result = await resp.json()
                 self.logger.info(f"Orderbook retrieved for {symbol}")
                 return result

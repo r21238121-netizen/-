@@ -4,16 +4,11 @@
 __pycache__/
 *.o
 *.obj
-*.out
 
 # Dependencies
 .venv/
 venv/
 node_modules/
-dist/
-build/
-.mypy_cache/
-.pytest_cache/
 
 # Logs and temp files
 *.log
@@ -23,16 +18,27 @@ build/
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
 # Editors
 .vscode/
 .idea/
 
-# Coverage
+# Coverage reports
 coverage/
 htmlcov/
 .coverage
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# MyPy cache
+.mypy_cache/
+# Pytest cache
+.pytest_cache/
 
 # System files
 .DS_Store
