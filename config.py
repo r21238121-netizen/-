@@ -1,94 +1,51 @@
-import json
+"""
+Configuration module for BingX API
+Contains API keys and configuration settings
+"""
+
 import os
-from typing import Dict, List, Optional
+from typing import Dict, Optional
+
 
 class Config:
-    def __init__(self, config_file: str = "api_config.json"):
-        self.config_file = config_file
-        self.config_data = self.load_config()
+    """Configuration class for BingX API settings"""
     
-    def load_config(self) -> Dict:
-        """Загружает конфигурацию из файла или создает стандартную"""
-        if os.path.exists(self.config_file):
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        else:
-            # Создаем стандартную конфигурацию
-            default_config = {
-                "apis": {
-                    "openai": {
-                        "endpoint": "https://api.openai.com/v1/models",
-                        "headers": {
-                            "Authorization": "Bearer {key}",
-                            "Content-Type": "application/json"
-                        },
-                        "test_endpoint": True
-                    },
-                    "anthropic": {
-                        "endpoint": "https://api.anthropic.com/v1/messages",  # Обновленный эндпоинт
-                        "headers": {
-                            "x-api-key": "{key}",
-                            "Content-Type": "application/json",
-                            "anthropic-version": "2023-06-01"
-                        },
-                        "test_endpoint": True
-                    },
-                    "google": {
-                        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models?key={key}",
-                        "headers": {
-                            "Content-Type": "application/json"
-                        },
-                        "test_endpoint": True
-                    },
-                    "cohere": {
-                        "endpoint": "https://api.cohere.ai/v1/models",
-                        "headers": {
-                            "Authorization": "Bearer {key}",
-                            "Content-Type": "application/json"
-                        },
-                        "test_endpoint": True
-                    },
-                    "huggingface": {
-                        "endpoint": "https://api-inference.huggingface.co/models",
-                        "headers": {
-                            "Authorization": "Bearer {key}",
-                            "Content-Type": "application/json"
-                        },
-                        "test_endpoint": True
-                    }
-                },
-                "check_timeout": 120,  # 2 минуты на общую проверку
-                "single_request_timeout": 10,  # 10 секунд на один запрос
-                "log_file": "api_check.log",
-                "error_log_file": "erroApi.log"
-            }
-            self.save_config(default_config)
-            return default_config
-    
-    def save_config(self, config: Dict):
-        """Сохраняет конфигурацию в файл"""
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
-    
-    def get_apis_config(self) -> Dict:
-        """Возвращает конфигурацию API"""
-        return self.config_data.get("apis", {})
-    
-    def get_check_timeout(self) -> int:
-        """Возвращает таймаут проверки в секундах"""
-        return self.config_data.get("check_timeout", 120)
-    
-    def get_single_request_timeout(self) -> int:
-        """Возвращает таймаут одного запроса в секундах"""
-        return self.config_data.get("single_request_timeout", 10)
-    
-    def get_log_file(self) -> str:
-        """Возвращает имя файла лога"""
-        return self.config_data.get("log_file", "api_check.log")
-    
-    def get_error_log_file(self) -> str:
-        """Возвращает имя файла с ошибками API"""
-        return self.config_data.get("error_log_file", "erroApi.log")
+    def __init__(self):
+        # Load API keys from environment variables or use defaults
+        self.API_KEY = os.getenv('BINGX_API_KEY', 'l6aSBNGk0qIWFi03rQgQjFOxz71APDse4qxUw3I05nI7cxZybzbwODxh1aDDLDN8CC7iEye5CH8gr1iOWdA')
+        self.SECRET_KEY = os.getenv('BINGX_SECRET_KEY', 'NdqT8ExENJ28GOvFG7hUl3mcHa6GrCtIFyiNxSAsNe8Jk6SbchAt27uCf3v9SLIbQVqoLcKKl2kcA3Ng')
+        self.BASE_URL = os.getenv('BINGX_BASE_URL', 'https://open-api.bingx.com')
+        
+        # Rate limiting settings
+        self.RATE_LIMIT_DELAY = float(os.getenv('RATE_LIMIT_DELAY', '0.2'))  # 200ms delay between requests
+        self.MAX_REQUESTS_PER_SECOND = int(os.getenv('MAX_REQUESTS_PER_SECOND', '5'))
+        
+        # Timeout settings
+        self.REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', '30'))
+        self.CONNECTION_TIMEOUT = int(os.getenv('CONNECTION_TIMEOUT', '10'))
+        
+        # Logging settings
+        self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+        self.LOG_FILE = os.getenv('LOG_FILE', 'bingx_api.log')
+        
+        # Demo mode flag
+        self.DEMO_MODE = os.getenv('BINGX_DEMO_MODE', 'false').lower() == 'true'
 
-# Глобальный экземпляр конфига
+    def get_api_credentials(self) -> Dict[str, str]:
+        """Return API credentials as dictionary"""
+        return {
+            'api_key': self.API_KEY,
+            'secret_key': self.SECRET_KEY
+        }
+
+    def get_base_url(self) -> str:
+        """Return the base API URL"""
+        return self.BASE_URL
+
+    def is_demo_mode(self) -> bool:
+        """Check if running in demo mode"""
+        return self.DEMO_MODE
+
+
+# Global configuration instance
 config = Config()

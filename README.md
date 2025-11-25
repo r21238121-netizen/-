@@ -1,191 +1,118 @@
-# Futures Scout - Локальный ИИ-ассистент для фьючерсной торговли
+# BingX API Professional Client
 
-## Описание проекта
+A production-level implementation of the BingX exchange API with secure authentication, rate limiting, and comprehensive error handling.
 
-Futures Scout - это локальный десктопный терминал для Windows, позволяющий подключаться к бирже BingX через API и использовать встроенный ИИ-модуль для анализа монет и получения точек входа в реальном времени.
+## Features
 
-## Особенности
+- ✅ **Secure Authentication**: Implements HMAC-SHA256 signature generation for API requests
+- ⚡ **Rate Limiting**: Built-in rate limiting to prevent exceeding API limits (default: 5 requests/sec)
+- 🔄 **Automatic Retries**: Configurable retry mechanism for failed requests
+- 🛡️ **Proper Error Handling**: Comprehensive error handling and logging
+- 📊 **Full API Coverage**: Support for all major BingX API endpoints
+- 📝 **Well Documented**: Full docstrings and examples
 
-- Подключение к бирже BingX через API для реальной и демонстрационной торговли
-- Анализ монет с помощью встроенного ИИ-модуля
-- Получение точек входа в реальном времени
-- Работа в реальном режиме (с исполнением ордеров) или демо-режиме (только анализ и симуляция)
-- Автоматическое обучение ИИ на основе результатов сделок (успех/неудача)
-- Безопасное хранение API-ключей с шифрованием
-- Простой интерфейс, подходящий даже для новичков
-- Полная поддержка всех 34+ эндпоинтов BingX API
-- Комплексный анализ позиций, баланса, PnL и истории доходов
-- Расширенные функции управления рисками и торговыми параметрами
+## Installation
 
-## Поддерживаемые эндпоинты BingX API
-
-Проект полностью реализует все основные категории эндпоинтов BingX:
-
-### Аккаунт и баланс
-- `/openApi/swap/v3/user/balance` - Баланс аккаунта
-- `/openApi/swap/v2/user/account` - Информация о счёте
-- `/openApi/swap/v2/user/positions` - Текущие позиции
-- `/openApi/swap/v2/user/income` - История прибыли/убытков
-- `/openApi/swap/v2/user/commissionRate` - Комиссии
-
-### Торговые операции
-- `/openApi/swap/v2/trade/order` - Размещение ордеров
-- `/openApi/swap/v2/trade/order/test` - Тестирование ордеров
-- `/openApi/swap/v2/trade/closePosition` - Закрытие позиций
-- `/openApi/swap/v2/trade/closeAllPositions` - Закрытие всех позиций
-- `/openApi/swap/v2/trade/batchOrders` - Массовое создание ордеров
-
-### Управление позициями
-- `/openApi/swap/v2/trade/leverage` - Установка плеча
-- `/openApi/swap/v2/trade/marginType` - Режим маржи
-- `/openApi/swap/v2/position/setTPSL` - Take Profit / Stop Loss
-
-### Рыночные данные
-- `/openApi/swap/v1/ticker/price` - Текущие цены
-- `/openApi/swap/v1/depthKlines` - Исторические данные (свечи)
-- `/openApi/swap/v2/quote/contracts` - Информация о контрактах
-- `/openApi/quote/v1/ticker/fundingRate` - Ставки финансирования
-
-### Расширенные функции
-- Управление мульти-активами
-- Двухсторонний режим позиций (hedge/one-way)
-- Автоматическое добавление маржи
-- Изменение и отмена ордеров
-- Отслеживание принудительных ордеров (ликвидации)
-
-## Архитектура
-
-- **Язык**: Python 3.10+
-- **GUI**: PyQt6
-- **График**: Lightweight Charts (встроенный через QWebEngineView)
-- **Хранение данных**: локальные JSON/SQLite
-- **Безопасность**: API-ключи шифруются через cryptography.fernet
-- **Обработка ошибок**: Комплексная валидация и обработка исключений
-- **Демо-режим**: Полнофункциональная симуляция с реалистичными данными
-
-## Установка и запуск
-
-1. Установите зависимости:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Запустите приложение:
+## Configuration
+
+The API client can be configured via environment variables or the config file:
+
+### Environment Variables
 ```bash
-python src/main.py
+export BINGX_API_KEY="your_api_key_here"
+export BINGX_SECRET_KEY="your_secret_key_here"
+export BINGX_DEMO_MODE="true"  # Set to "true" for demo mode
+export RATE_LIMIT_DELAY="0.2"  # Delay between requests in seconds
+export LOG_LEVEL="INFO"  # Logging level
 ```
 
-## Структура проекта
+### Default Configuration
+By default, the client uses demo keys provided in the code. For real trading, update the keys in `config.py`.
 
-```
-/workspace/
-├── requirements.txt          # Зависимости
-├── README.md               # Документация
-├── BINGX_API_ENDPOINTS.md  # Полная документация по эндпоинтам
-├── example_usage.py        # Примеры использования всех функций
-├── test_bingx_endpoints.py # Тестирование всех эндпоинтов
-├── src/                    # Исходный код
-│   ├── main.py             # Основной файл запуска
-│   ├── api/                # Модули API
-│   │   └── bingx_api.py    # Взаимодействие с API BingX
-│   ├── gui/                # Графический интерфейс
-│   │   ├── auth_window.py  # Окно аутентификации
-│   │   └── main_window.py  # Основное окно
-│   ├── models/             # Модели данных
-│   │   └── ai_agent.py     # ИИ-агент
-│   ├── ui/                 # Виджеты интерфейса
-│   │   ├── chart_widget.py # Виджет графика
-│   │   └── orderbook_widget.py # Виджет стакана
-│   └── utils/              # Утилиты
-│       └── config.py       # Управление конфигурацией
-└── build.py                # Скрипт упаковки в .exe
-```
+## Usage
 
-## Режимы работы
+### Basic Usage
+```python
+from bingx_api import BingXAPI
+from config import config
 
-### Режим входа (Auth Screen)
-- Поля для ввода BingX API Key и Secret Key
-- Валидация через тестовый запрос к API
-- Ключи сохраняются локально в зашифрованном виде
+# Get credentials from config
+credentials = config.get_api_credentials()
+api = BingXAPI(
+    api_key=credentials['api_key'],
+    secret_key=credentials['secret_key']
+)
 
-### Демо-режим
-- Доступен сразу при запуске
-- Использует публичные API для получения данных
-- Нет доступа к балансу и исполнению ордеров
-- ИИ работает в режиме симуляции
+# Get market data (no authentication required)
+klines = api.get_klines(symbol="BTC-USDT", interval="1m", limit=100)
+print(klines)
 
-## ИИ-модуль самообучения
-
-ИИ-модуль автоматически улучшает точность прогнозов на основе реальных исходов сделок:
-- Генерация сигналов с указанием вероятности успеха
-- Отслеживание результатов сделок
-- Периодическое переобучение модели на основе истории
-- Сохранение версионности модели
-
-## Безопасность
-
-- При первом запуске показывается предупреждение о рисках
-- API-ключи шифруются и хранятся локально
-- Никакие данные не передаются в сеть, кроме запросов к BingX
-- Поля ввода API-ключей маскируются
-- Все API-запросы подписываются с использованием HMAC-SHA256
-
-## Упаковка в .exe
-
-Для упаковки приложения в исполняемый файл Windows:
-
-```bash
-python build.py
+# Get account balance (requires authentication)
+balance = api.get_balance()
+print(balance)
 ```
 
-Результат будет находиться в папке `dist/FuturesScout`.
+### Available Methods
 
-## Тестирование
+#### Market Data (Public Endpoints)
+- `get_klines(symbol, interval, limit)` - Get candlestick data
+- `get_ticker(symbol)` - Get current ticker price
+- `get_24hr_ticker(symbol)` - Get 24hr ticker statistics 
+- `get_depth(symbol)` - Get order book depth
+- `get_trades(symbol, limit)` - Get recent trades
 
-Для тестирования всех эндпоинтов BingX API:
-```bash
-python test_bingx_endpoints.py
-```
+#### Trading (Authenticated Endpoints)
+- `get_balance()` - Get account balance
+- `place_order(symbol, side, order_type, quantity, position_side)` - Place new order
+- `cancel_order(symbol, order_id)` - Cancel order
+- `get_open_orders(symbol=None)` - Get open orders
+- `get_order_history(symbol, start_time, end_time)` - Get order history
 
-Для демонстрации всех функций API:
-```bash
-python example_usage.py
-```
+#### WebSocket Management
+- `create_listen_key()` - Create listen key for private streams
+- `extend_listen_key(listen_key)` - Extend listen key validity
+- `close_listen_key(listen_key)` - Close listen key
 
-## Система инициализации API
+## Security Notes
 
-Для решения проблемы с ошибкой 100400 и обеспечения надежного подключения к API-эндпоинтам была реализована система инициализации API, которая:
+⚠️ **Important Security Information:**
+- Never commit API keys to version control
+- Use environment variables for production deployments
+- The default keys in this implementation are for testing only
+- Always validate and sanitize input parameters
+- Monitor your API usage to avoid exceeding rate limits
 
-1. **Проверяет ключи** - позволяет ввести API-ключи или использовать их из файла конфигурации
-2. **Тестирует API-эндпоинты** - проверяет работоспособность API в течение максимум 2 минут
-3. **Создает лог ошибок** - создает файл `erroApi.log` с неработающими API
-4. **Использует только рабочие API** - основное приложение использует только проверенные API
+## Production Deployment
 
-### Использование системы инициализации
+For production use:
+1. Set environment variables with your real API keys
+2. Configure appropriate rate limiting based on BingX's requirements
+3. Implement proper logging and monitoring
+4. Use HTTPS for all connections
+5. Regularly rotate your API keys
 
-- `api_initializer.py` - основной файл системы инициализации
-- `config.py` - файл конфигурации с настройками API-эндпоинтов
-- `api_config.json` - JSON-файл с конфигурацией API (создается автоматически)
-- `api_keys.json` - файл с API-ключами (опционально)
-- `main.py` - основной файл запуска приложения
-- `erroApi.log` - лог с неработающими API (создается при запуске)
-- `api_check.log` - детальный лог проверки API (создается при запуске)
+## Error Handling
 
-Для запуска системы инициализации:
+The client includes comprehensive error handling:
+- Automatic retries for transient failures
+- Detailed logging for debugging
+- Proper exception propagation
+- Rate limit enforcement
 
-```bash
-python main.py
-```
+## Rate Limits
 
-Программа предложит выбрать режим:
-- 1: Ввод API-ключей вручную
-- 2: Использование ключей из файла api_keys.json
+The client enforces BingX's rate limits:
+- Default: Maximum 5 requests per second per IP
+- Configurable delay between requests
+- Automatic backoff for rate limit errors
 
-## Требования
+## Support
 
-- Python 3.10+
-- Windows 10/11 (64-bit)
-
-## Лицензия
-
-Проект разработан для личного использования. Все права на торговую стратегию принадлежат автору.
+For issues and questions, please check:
+- BingX API documentation
+- This repository's issue tracker
+- Rate limit policies and API terms of service
