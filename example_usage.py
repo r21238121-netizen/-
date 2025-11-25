@@ -1,197 +1,109 @@
-#!/usr/bin/env python3
 """
-Пример использования всех функций BingX API
+Example usage of the BingX API client
+Demonstrates various API functionalities
 """
-import sys
-import os
-import time
+
+from bingx_api import BingXAPI
+from config import config
 import json
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from api.bingx_api import BingXAPI
+def main():
+    """
+    Comprehensive example of using the BingX API client
+    """
+    print("=== BingX API Professional Client ===\n")
+    
+    # Get API credentials from config
+    credentials = config.get_api_credentials()
+    api_key = credentials['api_key']
+    secret_key = credentials['secret_key']
+    base_url = config.get_base_url()
 
-def demo_trading_workflow():
-    """Демонстрация полного торгового рабочего процесса"""
-    print("=== Демонстрация полного торгового рабочего процесса ===\n")
+    # Initialize API client
+    api = BingXAPI(api_key=api_key, secret_key=secret_key, base_url=base_url)
     
-    # Используем демо-режим
-    api = BingXAPI(api_key="demo_key", secret_key="demo_secret", demo_mode=True)
-    
-    print("1. Проверка баланса и позиций:")
-    try:
-        balance = api.get_balance()
-        print(f"   Баланс: {json.dumps(balance['data'], indent=2)}")
-        
-        positions = api.get_positions()
-        print(f"   Позиции: {json.dumps(positions['data'], indent=2)}")
-    except Exception as e:
-        print(f"   Ошибка получения баланса/позиций: {e}")
-    
-    print("\n2. Получение рыночных данных:")
-    try:
-        market_price = api.get_market_price("BTC-USDT")
-        print(f"   Цена BTC-USDT: {market_price['data'][0]['price']}")
-        
-        contracts = api.get_contracts_info()
-        print(f"   Информация о контрактах: {len(contracts['data'])} контрактов")
-    except Exception as e:
-        print(f"   Ошибка получения рыночных данных: {e}")
-    
-    print("\n3. Тестирование ордера:")
-    try:
-        test_result = api.test_order("BTC-USDT", "BUY", "LIMIT", "0.001", "59000")
-        print(f"   Тест ордера: {test_result['code']}")
-    except Exception as e:
-        print(f"   Ошибка тестирования ордера: {e}")
-    
-    print("\n4. Размещение ордера:")
-    try:
-        order = api.place_order("BTC-USDT", "BUY", "0.001", "LIMIT", "59000")
-        order_id = order['data']['orderId'] if 'orderId' in order.get('data', {}) else "123456"
-        print(f"   Ордер размещен: {order_id}")
-    except Exception as e:
-        print(f"   Ошибка размещения ордера: {e}")
-        order_id = "123456"  # для продолжения демо
-    
-    print("\n5. Получение открытых ордеров:")
-    try:
-        open_orders = api.get_open_orders("BTC-USDT")
-        print(f"   Открытые ордера: {len(open_orders['data']) if open_orders['data'] else 0}")
-    except Exception as e:
-        print(f"   Ошибка получения открытых ордеров: {e}")
-    
-    print("\n6. Изменение ордера:")
-    try:
-        amended_order = api.amend_order("BTC-USDT", order_id, price="58500")
-        print(f"   Ордер изменен: {amended_order['code']}")
-    except Exception as e:
-        print(f"   Ошибка изменения ордера: {e}")
-    
-    print("\n7. Управление позицией:")
-    try:
-        # Установка плеча
-        leverage_result = api.set_leverage("BTC-USDT", 10)
-        print(f"   Плечо установлено: {leverage_result['code']}")
-        
-        # Установка режима маржи
-        margin_result = api.set_margin_mode("BTC-USDT", "CROSSED")
-        print(f"   Режим маржи установлен: {margin_result['code']}")
-    except Exception as e:
-        print(f"   Ошибка управления позицией: {e}")
-    
-    print("\n8. Получение истории:")
-    try:
-        income_history = api.get_income_history("BTC-USDT")
-        print(f"   История доходов: {len(income_history['data'])} записей")
-        
-        trade_history = api.get_my_trades("BTC-USDT")
-        print(f"   История сделок: {len(trade_history['data'])} записей")
-    except Exception as e:
-        print(f"   Ошибка получения истории: {e}")
-    
-    print("\n9. Закрытие позиции:")
-    try:
-        close_result = api.close_position("BTC-USDT")
-        print(f"   Позиция закрыта: {close_result['code']}")
-    except Exception as e:
-        print(f"   Ошибка закрытия позиции: {e}")
-    
-    print("\n10. Получение комиссий:")
-    try:
-        commission = api.get_commission_rate("BTC-USDT")
-        print(f"   Комиссии: maker={commission['data']['maker']}, taker={commission['data']['taker']}")
-    except Exception as e:
-        print(f"   Ошибка получения комиссий: {e}")
-    
-    print("\n=== Демонстрация завершена ===")
+    print(f"Demo mode: {config.is_demo_mode()}")
+    print(f"Base URL: {base_url}\n")
 
-def advanced_features_demo():
-    """Демонстрация расширенных возможностей"""
-    print("\n=== Демонстрация расширенных возможностей ===\n")
-    
-    api = BingXAPI(api_key="demo_key", secret_key="demo_secret", demo_mode=True)
-    
-    print("1. Разворот позиции:")
     try:
-        reverse_result = api.reverse_position("BTC-USDT")
-        print(f"   Позиция развёрнута: {reverse_result['code']}")
-    except Exception as e:
-        print(f"   Ошибка разворота позиции: {e}")
-    
-    print("\n2. Управление маржой:")
-    try:
-        margin_adjust = api.adjust_position_margin("BTC-USDT", "10", 1)
-        print(f"   Маржа изменена: {margin_adjust['code']}")
-    except Exception as e:
-        print(f"   Ошибка изменения маржи: {e}")
-    
-    print("\n3. Автоматическое добавление маржи:")
-    try:
-        auto_margin = api.set_auto_add_margin("BTC-USDT", True)
-        print(f"   Автоматическое добавление маржи: {auto_margin['code']}")
-    except Exception as e:
-        print(f"   Ошибка установки автоматического добавления маржи: {e}")
-    
-    print("\n4. Управление режимом позиции:")
-    try:
-        pos_side = api.set_position_side_dual(True)
-        print(f"   Режим двойной позиции: {pos_side['code']}")
-    except Exception as e:
-        print(f"   Ошибка установки режима двойной позиции: {e}")
-    
-    print("\n5. Получение информации о принудительных ордерах:")
-    try:
-        force_orders = api.get_force_orders("BTC-USDT")
-        print(f"   Принудительные ордера: {len(force_orders['data']) if force_orders['data'] else 0}")
-    except Exception as e:
-        print(f"   Ошибка получения принудительных ордеров: {e}")
-    
-    print("\n=== Демонстрация расширенных возможностей завершена ===")
+        print("1. Testing public market data endpoints...\n")
+        
+        # Example 1: Get market data (unsigned request)
+        print("Getting BTC-USDT klines (1m interval, 5 candles)...")
+        klines = api.get_klines(symbol="BTC-USDT", interval="1m", limit=5)
+        if klines.get("data") and len(klines["data"]) > 0:
+            latest_candle = klines["data"][-1]
+            print(f"Latest candle: {latest_candle}")
+        else:
+            print("No kline data returned")
+        print()
 
-def risk_management_demo():
-    """Демонстрация управления рисками"""
-    print("\n=== Демонстрация управления рисками ===\n")
-    
-    api = BingXAPI(api_key="demo_key", secret_key="demo_secret", demo_mode=True)
-    
-    print("1. Установка TP/SL:")
-    try:
-        tp_sl_result = api.set_tp_sl("BTC-USDT", take_profit="65000", stop_loss="55000")
-        print(f"   TP/SL установлены: {tp_sl_result['code']}")
+        # Example 2: Get ticker information
+        print("Getting BTC-USDT ticker...")
+        ticker = api.get_ticker(symbol="BTC-USDT")
+        print(f"Ticker: {json.dumps(ticker, indent=2)}")
+        print()
+
+        # Example 3: Get order book depth
+        print("Getting BTC-USDT order book depth...")
+        depth = api.get_depth("BTC-USDT")
+        print(f"Depth: {json.dumps(depth, indent=2)[:200]}...")  # Truncate output
+        print()
+
+        print("2. Testing authenticated endpoints (will fail with demo keys)...\n")
+        
+        # Example 4: Get account balance (signed request)
+        # Note: This will likely fail with demo keys but demonstrates the method
+        print("Attempting to get account balance...")
+        try:
+            balance = api.get_balance()
+            print(f"Balance: {json.dumps(balance, indent=2)}")
+        except Exception as e:
+            print(f"Expected error with demo keys: {e}")
+        print()
+
+        # Example 5: Get open orders
+        print("Attempting to get open orders...")
+        try:
+            orders = api.get_open_orders()
+            print(f"Open orders: {json.dumps(orders, indent=2)}")
+        except Exception as e:
+            print(f"Expected error with demo keys: {e}")
+        print()
+
+        # Example 6: WebSocket listen key (for private streams)
+        print("Attempting to create listen key...")
+        try:
+            listen_key_data = api.create_listen_key()
+            print(f"Listen key: {json.dumps(listen_key_data, indent=2)}")
+        except Exception as e:
+            print(f"Expected error with demo keys: {e}")
+        print()
+
+        print("3. Testing order operations (simulation)...\n")
+        
+        # Example 7: Place a market order (simulation)
+        # Note: This is commented out to prevent actual trading with simulation keys
+        print("Order placement would work like this (not executed with demo keys):")
+        print("# order_response = api.place_order(")
+        print("#     symbol=\"BTC-USDT\",")
+        print("#     side=\"BUY\",")
+        print("#     order_type=\"MARKET\",")
+        print("#     quantity=\"0.001\",")
+        print("#     position_side=\"LONG\"")
+        print("# )")
+        print()
+
+        print("=== All examples completed successfully ===")
+        print("Note: Authenticated endpoints failed as expected with demo keys")
+        print("Replace with real API keys to use authenticated endpoints")
+
     except Exception as e:
-        print(f"   Ошибка установки TP/SL: {e}")
-    
-    print("\n2. Получение коэффициента поддержания маржи:")
-    try:
-        maint_ratio = api.get_maintenance_margin_ratio("BTC-USDT")
-        print(f"   Коэффициент поддержания маржи: {maint_ratio['data']['maintMarginRatio']}")
-    except Exception as e:
-        print(f"   Ошибка получения коэффициента: {e}")
-    
-    print("\n3. Получение правил мульти-активов:")
-    try:
-        multi_rules = api.get_multi_assets_rules()
-        print(f"   Правила мульти-активов: {multi_rules['data']['isMultiAssetsMargin']}")
-    except Exception as e:
-        print(f"   Ошибка получения правил: {e}")
-    
-    print("\n4. Установка мульти-активного режима:")
-    try:
-        multi_mode = api.set_multi_assets_mode(True)
-        print(f"   Мульти-активный режим: {multi_mode['code']}")
-    except Exception as e:
-        print(f"   Ошибка установки мульти-активного режима: {e}")
-    
-    print("\n=== Демонстрация управления рисками завершена ===")
+        print(f"Error occurred during execution: {e}")
+        import traceback
+        traceback.print_exc()
+
 
 if __name__ == "__main__":
-    print("Демонстрация возможностей BingX API")
-    print("=" * 50)
-    
-    demo_trading_workflow()
-    advanced_features_demo()
-    risk_management_demo()
-    
-    print("\nВсе демонстрации выполнены успешно!")
-    print("API полностью функционален и готов к использованию в продакшене.")
+    main()
