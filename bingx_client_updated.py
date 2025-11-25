@@ -21,10 +21,22 @@ class BingXClient:
         Args:
             mode: Trading mode - "swap" for futures or "spot" for spot trading
         """
-        credentials = config.get_api_credentials()
-        self.api_key = credentials['api_key']
-        self.secret = credentials['secret_key']
-        self.mode = mode
+        # Load API credentials directly from config
+        self.api_key = config.API_KEY
+        self.secret = config.SECRET_KEY
+        
+        # Validate that API keys are not None, empty, or using default placeholder values
+        if not self.api_key or self.api_key in [None, '', 'YOUR_API_KEY_HERE']:
+            raise ValueError("❌ BINGX_API_KEY is not set in config.py or is using default placeholder value. Please update config.py with your actual API key.")
+        if not self.secret or self.secret in [None, '', 'YOUR_SECRET_HERE']:
+            raise ValueError("❌ BINGX_SECRET is not set in config.py or is using default placeholder value. Please update config.py with your actual secret key.")
+        
+        # Use mode from config if not explicitly provided
+        if mode == "swap" and hasattr(config, 'MODE'):
+            self.mode = config.MODE
+        else:
+            self.mode = mode
+            
         self.base_url = config.get_base_url()
         self.session = aiohttp.ClientSession()
         
@@ -34,6 +46,8 @@ class BingXClient:
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
         self.logger = logging.getLogger(__name__)
+        
+        self.logger.info("✅ BingX Client initialized successfully with valid API credentials")
 
     def _get_corrected_base_endpoint(self, endpoint: str) -> str:
         """
