@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BingX Local AI Trading Terminal</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <header class="top-bar">
+            <div class="logo">BingX AI Terminal</div>
+            <div class="nav-controls">
+                <button id="connect-btn" class="btn btn-primary">Connect</button>
+                <button id="demo-btn" class="btn btn-secondary">Demo Mode</button>
+                <div class="account-info">
+                    <span id="balance-display">Balance: $0.00</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area with Draggable Panels -->
+        <div class="main-content">
+            <!-- Panel 1: Chart -->
+            <div class="panel draggable" id="chart-panel" style="grid-area: chart;">
+                <div class="panel-header">
+                    <h3>Market Chart</h3>
+                    <div class="panel-controls">
+                        <select id="symbol-select">
+                            <option value="BTC-USDT">BTC-USDT</option>
+                            <option value="ETH-USDT">ETH-USDT</option>
+                            <option value="SOL-USDT">SOL-USDT</option>
+                            <option value="BNB-USDT">BNB-USDT</option>
+                            <option value="XRP-USDT">XRP-USDT</option>
+                        </select>
+                        <select id="timeframe-select">
+                            <option value="1m">1m</option>
+                            <option value="5m">5m</option>
+                            <option value="15m">15m</option>
+                            <option value="1h">1h</option>
+                            <option value="4h">4h</option>
+                            <option value="1d">1d</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div id="chart-container"></div>
+                </div>
+            </div>
+
+            <!-- Panel 2: Order Book -->
+            <div class="panel draggable" id="orderbook-panel" style="grid-area: orderbook;">
+                <div class="panel-header">
+                    <h3>Order Book</h3>
+                    <div class="panel-controls">
+                        <span id="spread-display">Spread: 0.00%</span>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div class="orderbook">
+                        <div class="bids">
+                            <h4>Bids</h4>
+                            <ul id="bids-list"></ul>
+                        </div>
+                        <div class="asks">
+                            <h4>Asks</h4>
+                            <ul id="asks-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 3: AI Analysis -->
+            <div class="panel draggable" id="ai-panel" style="grid-area: ai;">
+                <div class="panel-header">
+                    <h3>AI Analysis</h3>
+                    <div class="panel-controls">
+                        <button id="refresh-ai-btn" class="btn btn-sm">Refresh</button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div class="ai-signal">
+                        <div class="signal-display" id="ai-signal">
+                            <span class="signal-label">AI Signal: </span>
+                            <span class="signal-value" id="signal-text">HOLD</span>
+                            <span class="confidence" id="confidence-text">(0%)</span>
+                        </div>
+                        <div class="signal-indicator" id="signal-indicator">
+                            <div class="signal-buy">BUY</div>
+                            <div class="signal-hold">HOLD</div>
+                            <div class="signal-sell">SELL</div>
+                        </div>
+                    </div>
+                    <div class="ai-features">
+                        <h4>Key Indicators:</h4>
+                        <ul id="indicators-list">
+                            <li>RSI: <span id="rsi-value">0</span></li>
+                            <li>MACD: <span id="macd-value">0</span></li>
+                            <li>Volatility: <span id="volatility-value">0</span></li>
+                            <li>Trend: <span id="trend-value">Neutral</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 4: Trading Controls -->
+            <div class="panel draggable" id="trading-panel" style="grid-area: trading;">
+                <div class="panel-header">
+                    <h3>Trading</h3>
+                </div>
+                <div class="panel-content">
+                    <div class="trade-controls">
+                        <div class="trade-type">
+                            <label>Direction:</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="direction" value="BUY" checked> BUY</label>
+                                <label><input type="radio" name="direction" value="SELL"> SELL</label>
+                            </div>
+                        </div>
+                        
+                        <div class="trade-mode">
+                            <label>Position:</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="position" value="LONG" checked> LONG</label>
+                                <label><input type="radio" name="position" value="SHORT"> SHORT</label>
+                            </div>
+                        </div>
+                        
+                        <div class="trade-inputs">
+                            <div class="input-group">
+                                <label>Quantity:</label>
+                                <input type="number" id="quantity-input" placeholder="Amount" value="0.001">
+                            </div>
+                            
+                            <div class="input-group">
+                                <label>Leverage:</label>
+                                <input type="number" id="leverage-input" placeholder="Leverage" value="10" min="1" max="125">
+                            </div>
+                            
+                            <div class="input-group">
+                                <label>Order Type:</label>
+                                <select id="order-type-select">
+                                    <option value="MARKET">MARKET</option>
+                                    <option value="LIMIT">LIMIT</option>
+                                    <option value="STOP">STOP</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button id="execute-trade-btn" class="btn btn-success">Execute Trade</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 5: Positions -->
+            <div class="panel draggable" id="positions-panel" style="grid-area: positions;">
+                <div class="panel-header">
+                    <h3>Positions</h3>
+                    <div class="panel-controls">
+                        <button id="refresh-positions-btn" class="btn btn-sm">Refresh</button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div class="positions-list" id="positions-list">
+                        <!-- Positions will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 6: Trade History -->
+            <div class="panel draggable" id="history-panel" style="grid-area: history;">
+                <div class="panel-header">
+                    <h3>Trade History</h3>
+                    <div class="panel-controls">
+                        <button id="refresh-history-btn" class="btn btn-sm">Refresh</button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>PnL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body">
+                            <!-- History will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Settings</h2>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="api-key">API Key:</label>
+                        <input type="password" id="api-key" placeholder="Enter your API key">
+                    </div>
+                    <div class="form-group">
+                        <label for="secret-key">Secret Key:</label>
+                        <input type="password" id="secret-key" placeholder="Enter your secret key">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="demo-checkbox"> Use Demo Mode
+                        </label>
+                    </div>
+                    <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
