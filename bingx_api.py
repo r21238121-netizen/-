@@ -12,6 +12,7 @@ import logging
 from config import config
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from bingx_endpoints import ALL_ENDPOINTS
 
 
 class BingXAPI:
@@ -189,7 +190,7 @@ class BingXAPI:
         Returns:
             Account balance data
         """
-        path = "/openApi/swap/v3/user/balance"
+        path = ALL_ENDPOINTS['get_balance']
         return self._create_signed_request("GET", path)
 
     def place_order(self, symbol: str, side: str, order_type: str, quantity: str, position_side: str = "LONG") -> Dict[str, Any]:
@@ -206,7 +207,7 @@ class BingXAPI:
         Returns:
             Order placement result
         """
-        path = "/openApi/swap/v2/trade/order"
+        path = ALL_ENDPOINTS['place_order']
         params = {
             "symbol": symbol,
             "side": side,
@@ -227,7 +228,7 @@ class BingXAPI:
         Returns:
             Cancellation result
         """
-        path = "/openApi/swap/v2/trade/cancel"
+        path = ALL_ENDPOINTS['cancel_order']
         params = {
             "symbol": symbol,
             "orderId": order_id
@@ -244,7 +245,7 @@ class BingXAPI:
         Returns:
             List of open orders
         """
-        path = "/openApi/swap/v2/trade/openOrders"
+        path = ALL_ENDPOINTS['get_open_orders']
         params = {}
         if symbol:
             params["symbol"] = symbol
@@ -262,7 +263,7 @@ class BingXAPI:
         Returns:
             Order history
         """
-        path = "/openApi/swap/v2/trade/allOrders"
+        path = ALL_ENDPOINTS['get_all_orders']
         params = {"symbol": symbol}
         if start_time:
             params["startTime"] = str(start_time)
@@ -284,7 +285,7 @@ class BingXAPI:
         Returns:
             Kline/candlestick data
         """
-        path = "/openApi/swap/v2/quote/klines"
+        path = ALL_ENDPOINTS['get_kline_data']
         params = {
             "symbol": symbol,
             "interval": interval,
@@ -297,12 +298,12 @@ class BingXAPI:
         Get ticker price (last price) for symbol(s)
         
         Args:
-            symbol: Trading pair (required for this endpoint)
+            symbol: Trading pair (optional, returns all if not specified)
             
         Returns:
             Ticker price data
         """
-        path = "/openApi/swap/v2/quote/ticker/price"
+        path = ALL_ENDPOINTS['get_ticker']
         params = {}
         if symbol:
             params["symbol"] = symbol
@@ -318,7 +319,7 @@ class BingXAPI:
         Returns:
             24hr Ticker data
         """
-        path = "/openApi/swap/v1/quote/ticker/24hr"
+        path = ALL_ENDPOINTS['get_24hr_ticker']
         params = {}
         if symbol:
             params["symbol"] = symbol
@@ -334,7 +335,7 @@ class BingXAPI:
         Returns:
             Order book depth data
         """
-        path = "/openApi/swap/v2/quote/depth"
+        path = ALL_ENDPOINTS['get_orderbook']
         params = {"symbol": symbol}
         return self._create_unsigned_request("GET", path, params)
 
